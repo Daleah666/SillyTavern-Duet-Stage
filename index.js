@@ -13,8 +13,9 @@
  *   DuetStage.toggleSidePanel / registerPanel / listPanels
  */
 
+import './autoupdate.js';   // updates itself from GitHub on each refresh, and shows the repo's 📣 board
 const MODULE = 'st-duet-stage';
-const VERSION = '0.1.0';
+const VERSION = '0.1.1';
 const PANEL_ID = 'duet-side-panel';
 const NEUTRAL_LABELS = ['neutral', 'normal', 'base', 'default', 'idle', 'standing', 'stand'];
 const SPRITE_EVENTS = [
