@@ -1,0 +1,12 @@
+{
+    "display_name": "Duet Stage",
+    "loading_order": 40,
+    "requires": [],
+    "optional": [],
+    "js": "index.js",
+    "css": "style.css",
+    "author": "Companion Project",
+    "version": "0.1.0",
+    "auto_update": false,
+    "homePage": "https://github.com/Daleah666/SillyTavern-Duet-Stage"
+}

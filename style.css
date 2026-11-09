@@ -1,0 +1,438 @@
+/* Duet Stage — dark stage, moveable chat column, right-side panel shell.
+   st-card-creator styles #stcc-* itself. This file only owns the shell. */
+
+#duet-stage {
+    position: fixed;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    background:
+        radial-gradient(ellipse at 50% 100%, rgba(70, 30, 80, 0.45), transparent 58%),
+        linear-gradient(180deg, #07080d 0%, #10131c 68%, #05060a 100%);
+}
+
+#duet-stage::after {
+    content: "";
+    position: absolute;
+    left: 8%;
+    right: 8%;
+    bottom: 0;
+    height: 16vh;
+    background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.55), transparent 70%);
+}
+
+#duet-sprite {
+    position: absolute;
+    bottom: 0;
+    left: var(--duet-sprite-left, 50%);
+    right: var(--duet-sprite-right, auto);
+    height: calc(100dvh - var(--topBarBlockSize, 46px) - 8px);
+    width: auto;
+    max-width: min(46vw, 680px);
+    object-fit: contain;
+    object-position: center bottom;
+    transform-origin: 50% 100%;
+    filter: drop-shadow(0 18px 22px rgba(0, 0, 0, 0.55));
+    animation: duet-idle 5.2s ease-in-out infinite;
+    transition: opacity 160ms linear;
+}
+
+#duet-sprite[hidden] {
+    display: none !important;
+}
+
+@keyframes duet-idle {
+    0%,
+    100% {
+        transform: translateX(var(--duet-sprite-shift, -50%)) translateY(0) rotate(-0.35deg);
+    }
+    50% {
+        transform: translateX(var(--duet-sprite-shift, -50%)) translateY(-8px) rotate(0.35deg);
+    }
+}
+
+body.st-duet-on[data-duet-dock="middle"] {
+    --duet-sprite-left: calc(50% + min(16vw, 140px));
+    --duet-sprite-right: auto;
+    --duet-sprite-shift: -50%;
+}
+
+body.st-duet-on[data-duet-dock="left"] {
+    --duet-sprite-left: auto;
+    --duet-sprite-right: 5vw;
+    --duet-sprite-shift: 0px;
+}
+
+body.st-duet-on.duet-panel-open[data-duet-dock="left"] {
+    --duet-sprite-right: calc(var(--duet-panel-w) + 3vw);
+}
+
+body.st-duet-on[data-duet-dock="right"] {
+    --duet-sprite-left: 4vw;
+    --duet-sprite-right: auto;
+    --duet-sprite-shift: 0px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    #duet-sprite {
+        animation: none;
+    }
+}
+
+/* Chat column. Leave --sheldWidth alone so the top bar stays where SillyTavern put it. */
+body.st-duet-on #sheld {
+    width: var(--duet-col-w) !important;
+    max-width: calc(100vw - 16px);
+    height: calc(100dvh - var(--topBarBlockSize, 46px) - 10px) !important;
+    top: calc(var(--topBarBlockSize, 46px) + 6px) !important;
+    border-radius: 16px;
+    overflow: hidden;
+    z-index: 30;
+    box-shadow: 0 18px 48px rgba(0, 0, 0, 0.48);
+    background: rgba(12, 14, 20, 0.94);
+    color: #e8ecf4;
+    transition: left 180ms ease, right 180ms ease, width 180ms ease;
+}
+
+body.st-duet-on.duet-dragging #sheld {
+    transition: none;
+}
+
+body.st-duet-on[data-duet-dock="middle"] #sheld {
+    left: calc((100vw - var(--duet-col-w)) / 2) !important;
+    right: auto !important;
+}
+
+body.st-duet-on.duet-panel-open[data-duet-dock="middle"] #sheld {
+    left: max(8px, calc((100vw - var(--duet-panel-w) - var(--duet-col-w)) / 2)) !important;
+    right: auto !important;
+}
+
+body.st-duet-on[data-duet-dock="left"] #sheld {
+    left: 8px !important;
+    right: auto !important;
+}
+
+body.st-duet-on[data-duet-dock="right"] #sheld {
+    left: auto !important;
+    right: 8px !important;
+}
+
+body.st-duet-on.duet-panel-open[data-duet-dock="right"] #sheld {
+    right: calc(var(--duet-panel-w) + 8px) !important;
+}
+
+body.st-duet-on.duet-stowed #sheld {
+    width: 0 !important;
+    min-width: 0 !important;
+    height: 0 !important;
+    overflow: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    box-shadow: none !important;
+}
+
+body.st-duet-on #chat {
+    max-height: none;
+    min-height: 0;
+    background-color: rgba(12, 14, 20, 0.94) !important;
+    color: #e8ecf4;
+    border-radius: 0;
+}
+
+body.st-duet-on #chat .mes_text {
+    font-size: calc(var(--duet-text-scale, 1) * var(--mainFontSize, 15px));
+    color: #e8ecf4;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
+}
+
+body.st-duet-on #chat .mes_text a {
+    color: #9ecbff;
+}
+
+body.st-duet-on #send_form {
+    background-color: rgba(8, 10, 16, 0.96);
+    border-color: rgba(255, 255, 255, 0.12);
+}
+
+body.st-duet-on #send_textarea {
+    color: #e8ecf4;
+}
+
+body.st-duet-on #send_textarea::placeholder {
+    color: rgba(232, 236, 244, 0.55);
+}
+
+#duet-col-bar {
+    display: flex;
+    flex: none;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    background: rgba(255, 255, 255, 0.04);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    z-index: 40;
+}
+
+.duet-col-spacer,
+.duet-sp-spacer {
+    flex: 1;
+}
+
+.duet-icon-btn,
+#duet-menu button,
+.duet-settings button {
+    font: inherit;
+    font-size: 0.82rem;
+    color: #e8ecf4;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 999px;
+    padding: 4px 10px;
+    cursor: pointer;
+    line-height: 1;
+}
+
+.duet-icon-btn {
+    padding: 5px 8px;
+}
+
+.duet-icon-btn[aria-pressed="true"] {
+    background: rgba(255, 120, 190, 0.22);
+    border-color: rgba(255, 140, 200, 0.75);
+    color: #fff;
+}
+
+.duet-icon-btn:hover,
+#duet-menu button:hover {
+    border-color: rgba(255, 140, 200, 0.8);
+}
+
+.duet-grip,
+.duet-sp-resize {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 10px;
+    z-index: 45;
+    cursor: ew-resize;
+    touch-action: none;
+}
+
+.duet-grip::after,
+.duet-sp-resize::after {
+    content: "";
+    position: absolute;
+    top: 18px;
+    bottom: 18px;
+    width: 3px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.18);
+}
+
+.duet-grip:hover::after,
+.duet-sp-resize:hover::after {
+    background: rgba(255, 140, 200, 0.85);
+}
+
+#duet-grip-left {
+    left: 0;
+    display: none;
+}
+
+#duet-grip-right {
+    right: 0;
+    display: none;
+}
+
+#duet-grip-left::after {
+    left: 2px;
+}
+
+#duet-grip-right::after {
+    right: 2px;
+}
+
+body.st-duet-on[data-duet-dock="middle"] #duet-grip-left,
+body.st-duet-on[data-duet-dock="middle"] #duet-grip-right,
+body.st-duet-on[data-duet-dock="right"] #duet-grip-left,
+body.st-duet-on[data-duet-dock="left"] #duet-grip-right {
+    display: block;
+}
+
+#duet-stow-tab {
+    display: none;
+    position: fixed;
+    z-index: 45;
+    bottom: 16px;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px 6px 14px;
+    color: #e8ecf4;
+    background: rgba(12, 14, 20, 0.94);
+    border: 1px solid rgba(255, 140, 200, 0.45);
+    border-radius: 999px;
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.4);
+    font: inherit;
+}
+
+#duet-stow-bring {
+    font: inherit;
+    color: inherit;
+    background: none;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+}
+
+body.st-duet-on.duet-stowed #duet-stow-tab {
+    display: flex;
+}
+
+body.st-duet-on.duet-stowed[data-duet-dock="left"] #duet-stow-tab,
+body.st-duet-on.duet-stowed[data-duet-dock="middle"] #duet-stow-tab {
+    left: 16px;
+}
+
+body.st-duet-on.duet-stowed[data-duet-dock="right"] #duet-stow-tab {
+    right: 16px;
+}
+
+body.st-duet-on.duet-stowed.duet-panel-open[data-duet-dock="right"] #duet-stow-tab {
+    right: calc(var(--duet-panel-w) + 16px);
+}
+
+/* Right-side panel. First child stays .duet-sp-resize so card creator can insert after it.
+   Width is not !important: st-card-creator's wide rule must be able to override it. */
+#duet-side-panel {
+    display: none;
+    position: fixed;
+    top: 12px;
+    right: 0;
+    bottom: 12px;
+    left: auto;
+    width: var(--duet-panel-w, 340px);
+    z-index: 80;
+    flex-direction: column;
+    gap: 8px;
+    box-sizing: border-box;
+    padding: 10px 12px 12px 16px;
+    color: #e8ecf4;
+    background: linear-gradient(165deg, rgba(16, 14, 24, 0.96), rgba(8, 8, 14, 0.98));
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-right: 0;
+    border-radius: 16px 0 0 16px;
+    box-shadow: -12px 0 40px rgba(0, 0, 0, 0.35);
+    overflow: hidden;
+}
+
+#duet-side-panel.open {
+    display: flex;
+}
+
+#duet-side-panel.duet-stage-collapsed {
+    bottom: auto;
+    height: auto;
+}
+
+#duet-side-panel.duet-stage-collapsed #duet-rail-body {
+    display: none;
+}
+
+.duet-sp-resize {
+    left: 0;
+    width: 12px;
+}
+
+.duet-sp-resize::after {
+    left: 4px;
+}
+
+.duet-sp-head {
+    display: flex;
+    flex: none;
+    align-items: center;
+    gap: 8px;
+    min-height: 28px;
+}
+
+.duet-sp-head b {
+    font-size: 0.95rem;
+}
+
+#duet-rail-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+#duet-menu {
+    position: fixed;
+    z-index: 90;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 180px;
+    padding: 8px;
+    background: rgba(12, 14, 20, 0.98);
+    border: 1px solid rgba(255, 140, 200, 0.4);
+    border-radius: 12px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+}
+
+#duet-menu[hidden] {
+    display: none !important;
+}
+
+#duet-menu button {
+    text-align: left;
+    border-radius: 8px;
+}
+
+#duet-tip {
+    position: fixed;
+    z-index: 12000;
+    pointer-events: none;
+    max-width: 260px;
+    padding: 5px 8px;
+    color: #f4f6fb;
+    background: rgba(8, 10, 16, 0.96);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 8px;
+    font: 12px/1.35 "Noto Sans", sans-serif;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+}
+
+#duet-tip[hidden] {
+    display: none !important;
+}
+
+.duet-settings {
+    margin: 8px 0;
+    padding: 8px 10px;
+    color: var(--SmartThemeBodyColor, #e8ecf4);
+    border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.16));
+    border-radius: 10px;
+}
+
+.duet-settings summary {
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.duet-set-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+    font-size: 0.85rem;
+}
+
+.duet-set-row input[type="range"],
+.duet-set-row select {
+    flex: 1;
+    min-width: 0;
+}
