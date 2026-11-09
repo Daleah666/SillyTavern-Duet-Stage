@@ -423,6 +423,20 @@ body.st-duet-on.duet-stowed.duet-panel-open[data-duet-dock="right"] #duet-stow-t
     font-weight: 600;
 }
 
+.duet-features {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin: 8px 0;
+}
+
+.duet-features .check small,
+.duet-set-note {
+    color: rgba(232, 238, 247, 0.62);
+    font-size: 0.78rem;
+    font-weight: 500;
+}
+
 .duet-set-row {
     display: flex;
     align-items: center;
@@ -440,6 +454,24 @@ body.st-duet-on.duet-stowed.duet-panel-open[data-duet-dock="right"] #duet-stow-t
 /* Visual novel shell. The column and #duet-side-panel rules above stay as they are. */
 
 body.st-duet-vn #duet-sprite {
+    display: none !important;
+}
+
+#duet-vn[hidden],
+#duet-stage[hidden],
+#duet-side-panel.duet-panels-off {
+    display: none !important;
+}
+
+body:not(.st-duet-on) #duet-col-bar,
+body:not(.st-duet-on) #duet-grip-left,
+body:not(.st-duet-on) #duet-grip-right,
+body:not(.st-duet-on) #duet-stow-tab,
+body:not(.st-duet-on) #duet-menu {
+    display: none !important;
+}
+
+#duet-vn [hidden] {
     display: none !important;
 }
 
@@ -651,15 +683,21 @@ body.st-duet-vn #duet-sprite {
 }
 
 .dv-recent-btn img,
-.dv-tile img {
-    width: 100%;
-    height: 72px;
-    object-fit: cover;
+.dv-tile img,
+#duet-lib img {
+    width: auto;
+    height: auto;
+    max-width: 100%;
+    max-height: 280px;
+    object-fit: contain;
+    object-position: center center;
     display: block;
-    background: #11141b;
+    background: transparent;
 }
 
-.dv-recent-btn img { height: 100%; }
+.dv-recent-btn img {
+    max-height: 100%;
+}
 
 .dv-you {
     margin-top: auto;
@@ -684,7 +722,10 @@ body.st-duet-vn #duet-sprite {
     display: grid;
     place-items: center;
     border-radius: 50%;
-    background: #2a2433 center/cover no-repeat;
+    background-color: #2a2433;
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: contain;
     font-size: 0.8rem;
 }
 

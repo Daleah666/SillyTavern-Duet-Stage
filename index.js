@@ -15,8 +15,10 @@
 
 import './autoupdate.js';   // updates itself from GitHub on each refresh, and shows the repo's 📣 board
 import { bootVn } from './vn.js';
+import { FEATURES, ensureFeatures, featureOn, setFeature } from './features.js';
+import { completeSignIn, hydrateDrive, takeOauthReturn } from './drive.js';
 const MODULE = 'st-duet-stage';
-const VERSION = '0.2.0';
+const VERSION = '0.3.0';
 const PANEL_ID = 'duet-side-panel';
 const NEUTRAL_LABELS = ['neutral', 'normal', 'base', 'default', 'idle', 'standing', 'stand'];
 const SPRITE_EVENTS = [
@@ -53,6 +55,8 @@ function settings() {
     if (typeof s.panelOpen !== 'boolean') s.panelOpen = DEFAULTS.panelOpen;
     if (typeof s.panelWidth !== 'number' || !Number.isFinite(s.panelWidth)) s.panelWidth = DEFAULTS.panelWidth;
     s.panelWidth = clamp(Math.round(s.panelWidth), 240, 720);
+    ensureFeatures(s);
+    try { hydrateDrive(s); } catch (e) { console.warn(`[${MODULE}] drive settings`, e); }
     return s;
 }
 
@@ -229,7 +233,24 @@ function mountSettings() {
     stowed.append(h('input', { id: 'duet-set-stowed', type: 'checkbox' }));
     const panel = h('label', { class: 'duet-set-row', text: 'Side panel ' });
     panel.append(h('input', { id: 'duet-set-panel', type: 'checkbox' }));
-    box.append(summary, dock, width, scale, stowed, panel);
+    const features = h('div', { class: 'duet-features' });
+    const heading = h('p', { class: 'duet-set-note', text: 'Each feature can be off on its own. SillyTavern keeps working, and the other features stay as they are.' });
+    features.append(heading);
+    for (const feature of FEATURES) {
+        const row = h('label', { class: 'duet-set-row' });
+        const input = h('input', { type: 'checkbox', 'data-feature-toggle': feature.id });
+        const text = h('span', { text: feature.label });
+        row.append(input, text);
+        row.title = feature.blurb;
+        input.addEventListener('change', () => {
+            setFeature(settings(), feature.id, input.checked);
+            saveSettings();
+            applyLayout();
+            try { window.DuetStage?.onFeatures?.(); } catch (e) { console.warn(`[${MODULE}] features`, e); }
+        });
+        features.append(row);
+    }
+    box.append(summary, dock, width, scale, stowed, panel, features);
     host.append(box);
 
     dockSel.addEventListener('change', () => {
@@ -267,6 +288,9 @@ function syncSettingsForm() {
     if (scale) scale.value = String(s.textScale);
     if (stowed) stowed.checked = s.stowed;
     if (panel) panel.checked = s.panelOpen;
+    document.querySelectorAll('#st-duet-stage-settings [data-feature-toggle]').forEach((input) => {
+        input.checked = featureOn(s, input.getAttribute('data-feature-toggle'));
+    });
 }
 
 /* ---------------- layout ---------------- */
@@ -282,18 +306,32 @@ function applyLayout() {
     const s = settings();
     const root = document.documentElement;
     const body = document.body;
+    const stageOn = featureOn(s, 'stage');
+    const panelsOn = featureOn(s, 'panels');
+    const panelOpen = panelsOn && s.panelOpen;
     root.style.setProperty('--duet-col-w', `${columnWidth(s)}px`);
     root.style.setProperty('--duet-text-scale', String(s.textScale));
-    root.style.setProperty('--duet-panel-w', `${s.panelOpen ? s.panelWidth : 0}px`);
-    body.classList.add('st-duet-on', 'st-duet-vn');
-    body.classList.toggle('duet-stowed', s.stowed);
-    body.classList.toggle('duet-panel-open', s.panelOpen);
+    root.style.setProperty('--duet-panel-w', `${panelOpen ? s.panelWidth : 0}px`);
+    body.classList.toggle('st-duet-on', stageOn);
+    body.classList.toggle('st-duet-vn', stageOn);
+    body.classList.toggle('duet-stowed', stageOn && s.stowed);
+    body.classList.toggle('duet-panel-open', panelOpen);
     body.classList.toggle('duet-nav-collapsed', !!s.navCollapsed);
     body.dataset.duetDock = s.dock;
     root.style.setProperty('--duet-nav-w', s.navCollapsed ? '60px' : '232px');
 
+    const vn = document.getElementById('duet-vn');
+    if (vn) vn.hidden = !stageOn;
+    const backdrop = document.getElementById('duet-stage');
+    if (backdrop) backdrop.hidden = !stageOn;
+    const legacySprite = document.getElementById('duet-sprite');
+    if (legacySprite && !stageOn) legacySprite.hidden = true;
+
     const panel = document.getElementById(PANEL_ID);
-    if (panel) panel.classList.toggle('open', s.panelOpen);
+    if (panel) {
+        panel.classList.toggle('open', panelOpen);
+        panel.classList.toggle('duet-panels-off', !panelsOn);
+    }
     document.querySelectorAll('[data-duet-dock-btn]').forEach((btn) => {
         btn.setAttribute('aria-pressed', String(btn.getAttribute('data-duet-dock-btn') === s.dock));
     });
@@ -371,6 +409,7 @@ function startDrag(ev, which) {
 }
 
 function onWheel(ev) {
+    if (!featureOn(settings(), 'stage')) return;
     if (!ev.ctrlKey) return;
     const sheld = document.getElementById('sheld');
     if (!sheld || !sheld.contains(ev.target)) return;
@@ -466,6 +505,13 @@ function panelEl() {
 
 function toggleSidePanel() {
     const s = settings();
+    if (!featureOn(s, 'panels')) {
+        s.panelOpen = false;
+        saveSettings();
+        applyLayout();
+        closeMenu();
+        return false;
+    }
     s.panelOpen = !s.panelOpen;
     saveSettings();
     applyLayout();
@@ -479,7 +525,7 @@ const stageMode = {
         if (!el) return;
         const on = !!active;
         el.classList.toggle('duet-stage-collapsed', on);
-        if (on && !settings().panelOpen) {
+        if (on && featureOn(settings(), 'panels') && !settings().panelOpen) {
             settings().panelOpen = true;
             saveSettings();
         }
@@ -740,8 +786,17 @@ async function applySprite() {
     if (tabName) tabName.textContent = ch?.name ? `Chat · ${ch.name}` : 'Chat';
     const img = document.getElementById('duet-sprite');
     if (!img) return;
+    if (!featureOn(settings(), 'stage')) {
+        clearSprite(img);
+        return;
+    }
     if (!ch) {
         clearSprite(img);
+        return;
+    }
+    const avatar = avatarUrl(ch.avatar);
+    if (!featureOn(settings(), 'sprites')) {
+        showSprite(img, avatar, ch.name || '', '');
         return;
     }
     const pack = await loadSprites(ch);
@@ -759,7 +814,6 @@ async function applySprite() {
             }
         }
     }
-    const avatar = avatarUrl(ch.avatar);
     if (!url) {
         showSprite(img, avatar, ch.name || '', '');
         return;
@@ -789,6 +843,7 @@ function bindSpriteEvents() {
 
 let booted = false;
 let bootTries = 0;
+let pendingOauth = null;
 
 function publishApi() {
     window.DuetStage = {
@@ -822,9 +877,21 @@ function boot() {
     }
     booted = true;
     settings();
+    if (pendingOauth?.mode === 'redirect') {
+        const oauth = pendingOauth;
+        pendingOauth = null;
+        const bag = hydrateDrive(settings());
+        completeSignIn(bag, oauth.code, oauth.state, oauth.pending)
+            .then(() => {
+                saveSettings();
+                console.info(`[${MODULE}] Drive sign-in saved`);
+            })
+            .catch((e) => console.warn(`[${MODULE}] Drive sign-in`, e));
+    }
     // Save only after SillyTavern finishes loading extension settings.
     // 0.1.2 forced the column open on every refresh. 0.2.0 stows it once
     // (vn.js) so the stage is the chat. The Chat button stays above the docks.
+    // 0.3.0 leaves the column alone while Stage takeover is off.
     const loaded = c.eventTypes?.SETTINGS_LOADED || c.event_types?.SETTINGS_LOADED;
     if (c.eventSource && loaded) c.eventSource.on(loaded, allowSaves);
     else allowSaves();
@@ -858,4 +925,12 @@ function boot() {
     console.info(`[${MODULE}] ${VERSION}`);
 }
 
-jQuery(() => boot());
+const oauthReturn = takeOauthReturn();
+pendingOauth = oauthReturn && oauthReturn.mode === 'redirect' ? oauthReturn : null;
+if (oauthReturn?.mode === 'popup') {
+    const note = document.createElement('p');
+    note.textContent = 'Google Drive is signed in for Duet Stage. You can close this window.';
+    document.body?.append(note);
+} else {
+    jQuery(() => boot(oauthReturn));
+}

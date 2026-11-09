@@ -43,6 +43,22 @@ A one-on-one visual novel on top of the open SillyTavern chat. Your persona stan
 | `personaKey` | last persona picked in Cast |
 | `subl` | subliminal lines, interval, strength |
 | `inner` | drifting thoughts, per character avatar |
+| `features` | on/off for each feature. Missing keys stay on |
+| `drive` | Google client ID and tokens for this user only. Never commit them |
+
+## Features, one switch each
+
+SillyTavern's extension settings, and **More → Settings** on the stage, each have a checkbox:
+
+Stage takeover, Side panel, Chats, Cast, Card, Memory, Library, Stage sprites, Subliminals, Inner voice, Solo Stage, Drive sync, Mirror.
+
+Turning one off hides that part and skips its work. The chat SillyTavern already had keeps working. Saved lines, cards and tokens stay where they were. The side-panel element stays in the page when its switch is off, so another extension looking for `#duet-side-panel` does not crash. Stage takeover off removes the column styling and the visual-novel shell.
+
+## Drive and the library
+
+**More → Drive.** Paste the public OAuth client ID once (not a secret), allow the redirect URI shown on that page, and sign in. The token is kept in SillyTavern extension settings and in this browser. Save writes cast, cards, memory, subliminals and sprite files to a Drive folder named Duet Stage Hub. Load reads that file and any pictures already in Nova Ai Data, then copies the original bytes into SillyTavern. Nothing is resized.
+
+**Library** can add many pictures at once, import card files, and add the cast names from the Claude library index (names only, no drawn pictures). A picture whose file name matches that index is filed on that character. Tiles use `object-fit: contain`.
 
 ## For other extensions
 
