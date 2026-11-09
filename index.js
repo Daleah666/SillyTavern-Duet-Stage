@@ -14,8 +14,9 @@
  */
 
 import './autoupdate.js';   // updates itself from GitHub on each refresh, and shows the repo's 📣 board
+import { bootVn } from './vn.js';
 const MODULE = 'st-duet-stage';
-const VERSION = '0.1.2';
+const VERSION = '0.2.0';
 const PANEL_ID = 'duet-side-panel';
 const NEUTRAL_LABELS = ['neutral', 'normal', 'base', 'default', 'idle', 'standing', 'stand'];
 const SPRITE_EVENTS = [
@@ -55,11 +56,27 @@ function settings() {
     return s;
 }
 
+let allowSave = false;
+let saveQueued = false;
+
 function saveSettings() {
+    if (!allowSave) {
+        saveQueued = true;
+        return;
+    }
     try {
         ctx().saveSettingsDebounced?.();
     } catch (e) {
         console.warn(`[${MODULE}] save failed`, e);
+    }
+}
+
+function allowSaves() {
+    if (allowSave) return;
+    allowSave = true;
+    if (saveQueued) {
+        saveQueued = false;
+        saveSettings();
     }
 }
 
@@ -268,10 +285,12 @@ function applyLayout() {
     root.style.setProperty('--duet-col-w', `${columnWidth(s)}px`);
     root.style.setProperty('--duet-text-scale', String(s.textScale));
     root.style.setProperty('--duet-panel-w', `${s.panelOpen ? s.panelWidth : 0}px`);
-    body.classList.add('st-duet-on');
+    body.classList.add('st-duet-on', 'st-duet-vn');
     body.classList.toggle('duet-stowed', s.stowed);
     body.classList.toggle('duet-panel-open', s.panelOpen);
+    body.classList.toggle('duet-nav-collapsed', !!s.navCollapsed);
     body.dataset.duetDock = s.dock;
+    root.style.setProperty('--duet-nav-w', s.navCollapsed ? '60px' : '232px');
 
     const panel = document.getElementById(PANEL_ID);
     if (panel) panel.classList.toggle('open', s.panelOpen);
@@ -369,7 +388,7 @@ const savedTitle = new WeakMap();
 let tipHost = null;
 
 function duetSurface(node) {
-    return !!(node && node.closest && node.closest('#sheld, #duet-side-panel, #duet-stow-tab, #duet-menu, #st-duet-stage-settings, #stcc-modal'));
+    return !!(node && node.closest && node.closest('#sheld, #duet-side-panel, #duet-stow-tab, #duet-menu, #st-duet-stage-settings, #stcc-modal, #duet-vn'));
 }
 
 function findTipHost(target) {
@@ -802,8 +821,14 @@ function boot() {
         return;
     }
     booted = true;
-    settings().stowed = false;   // 0.1.2: a refresh always brings the chat (and its bar) back
-    saveSettings();
+    settings();
+    // Save only after SillyTavern finishes loading extension settings.
+    // 0.1.2 forced the column open on every refresh. 0.2.0 stows it once
+    // (vn.js) so the stage is the chat. The Chat button stays above the docks.
+    const loaded = c.eventTypes?.SETTINGS_LOADED || c.event_types?.SETTINGS_LOADED;
+    if (c.eventSource && loaded) c.eventSource.on(loaded, allowSaves);
+    else allowSaves();
+    setTimeout(allowSaves, 3000);
     mount();
     publishApi();
     applyLayout();
@@ -813,6 +838,17 @@ function boot() {
     window.addEventListener('resize', () => applyLayout());
     bindSpriteEvents();
     scheduleSprite();
+    bootVn({
+        setDock,
+        setStowed,
+        settings,
+        saveSettings,
+        applyLayout,
+        refreshStage: () => {
+            scheduleSprite();
+            applyLayout();
+        },
+    });
     let watchTries = 0;
     const watchTimer = setInterval(() => {
         watchExpression();

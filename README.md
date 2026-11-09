@@ -1,22 +1,28 @@
-# st-duet-stage · Duet chat column for SillyTavern
+# Duet Stage for SillyTavern
 
 Install in SillyTavern: Extensions (the blocks icon) → **Install extension** → paste
 
     https://github.com/Daleah666/SillyTavern-Duet-Stage
 
-and, if the dialog has a branch field, use `st-duet-stage`. This branch holds the extension at its root (manifest.json beside this file). The source of truth is `st-duet-stage/extension/` on the main branches; this branch is a mirror for the installer.
+`manifest.json` is at the repo root on `main`. Leave the branch field empty, or set it to `main`.
 
-Manual install: copy this folder into `data/<user>/extensions/third-party/st-duet-stage/` and reload.
+Manual install: copy this folder into `data/<user>/extensions/st-duet-stage/` and reload. SillyTavern serves it at `/scripts/extensions/third-party/st-duet-stage/`.
 
-No build step. Vanilla JS and jQuery, same as SillyTavern's own extensions.
+No build step. Vanilla JS and jQuery, same as SillyTavern's own extensions. No API keys live in this repo. Send, Continue and Reroll use whatever connection SillyTavern already has.
 
 ## What you get
 
-- The chat column (`#sheld`) docks in the **middle** (1-on-1) or to the **left** or **right** (duet, stage beside the chat). Drag the column's inner edge to resize it.
-- **Ctrl + wheel** over the column scales message text only (`.mes_text`). The bar, the input, and the sprite stay put.
-- Tooltips inside the column and the side panel open **above the pointer**.
-- **Stow** tucks the chat away. A tab brings it back.
-- Her expression sprite stands on a dark stage behind the column, or beside it when the chat is docked to a side, with a small idle sway. Sprites are read from `GET /api/sprites/get?name=<folder>` (her avatar file name, then her display name). If that folder is empty, the stage uses her existing avatar at `/characters/<avatar>`. This extension does not generate or ship character art.
+A one-on-one visual novel on top of the open SillyTavern chat. Your persona stands on the left, their character on the right, and the dialogue runs between them.
+
+- **Cast** lists SillyTavern characters (right) and personas (left). Create a character, import a PNG or JSON card, or pick a persona. An optional stand-in card can pose on your side; lines still send as the persona.
+- **Card** edits the open character (description, personality, scenario, first message, examples, prompts, notes, tags) through SillyTavern's character save.
+- **New chat** starts a SillyTavern chat and reopens an older one.
+- **Send / Continue / Reroll** call SillyTavern `generate('normal')`, `generate('continue')` and `swipe.right`. The microphone uses the browser's speech recognition when it has one.
+- **Memory** is stored in chat metadata (`duet_memory`) and injected with `setExtensionPrompt`. The author's note field is SillyTavern's own note.
+- **Library** lists her expression sprites from `GET /api/sprites/get` and can upload or delete one. A `[mood]` tag in a line picks a matching sprite. If she has no sprites, the stage uses her avatar.
+- **Subliminals** and **Inner voice** drift lines you write. Inner voice can also ask the connected model, via `generateQuietPrompt`, and store the thought on her last message.
+- **Solo Stage** hides your side so she stands alone. The Claude ledger page (gauges, growth) is not part of SillyTavern; More → Experimental says what else stayed behind.
+- The SillyTavern chat column still docks middle, left or right, resizes, scales message text with Ctrl+wheel, and stows. It starts stowed so the stage is the chat. **ST chat** brings the column back.
 - A right-side panel, `#duet-side-panel`, with a body `#duet-rail-body`. Other extensions attach their tabs there.
 
 ## Settings
@@ -28,9 +34,15 @@ No build step. Vanilla JS and jQuery, same as SillyTavern's own extensions.
 | `dock` | `middle`, `left`, or `right` |
 | `width` | chat column width in pixels |
 | `textScale` | message-text multiplier (Ctrl+wheel) |
-| `stowed` | chat tucked away |
+| `stowed` | chat column tucked away |
 | `panelOpen` | side panel open |
 | `panelWidth` | side panel width in pixels |
+| `navCollapsed` | sidebar collapsed to icons |
+| `solo` | hide the left figure |
+| `leftAvatar` | optional character avatar standing on the left |
+| `personaKey` | last persona picked in Cast |
+| `subl` | subliminal lines, interval, strength |
+| `inner` | drifting thoughts, per character avatar |
 
 ## For other extensions
 
