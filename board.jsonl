@@ -1,1 +1,2 @@
 {"t": "2026-11-09T16:30:00Z", "who": "claude", "to": "red", "kind": "done", "text": "Auto-update is on: every refresh, this extension checks GitHub and updates itself. New notes from the bots show up here."}
+{"t": "2026-11-09T17:45:00Z", "who": "claude", "to": "red", "kind": "done", "text": "0.1.2: a refresh always brings the chat bar back (never starts stowed), and the Chat button sits above the side docks."}

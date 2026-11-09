@@ -15,7 +15,7 @@
 
 import './autoupdate.js';   // updates itself from GitHub on each refresh, and shows the repo's 📣 board
 const MODULE = 'st-duet-stage';
-const VERSION = '0.1.1';
+const VERSION = '0.1.2';
 const PANEL_ID = 'duet-side-panel';
 const NEUTRAL_LABELS = ['neutral', 'normal', 'base', 'default', 'idle', 'standing', 'stand'];
 const SPRITE_EVENTS = [
@@ -802,7 +802,7 @@ function boot() {
         return;
     }
     booted = true;
-    settings();
+    settings().stowed = false;   // 0.1.2: a refresh always brings the chat (and its bar) back
     saveSettings();
     mount();
     publishApi();
