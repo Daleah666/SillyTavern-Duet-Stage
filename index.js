@@ -822,6 +822,9 @@ function boot() {
     }
     booted = true;
     settings();
+    // Save only after SillyTavern finishes loading extension settings.
+    // 0.1.2 forced the column open on every refresh. 0.2.0 stows it once
+    // (vn.js) so the stage is the chat. The Chat button stays above the docks.
     const loaded = c.eventTypes?.SETTINGS_LOADED || c.event_types?.SETTINGS_LOADED;
     if (c.eventSource && loaded) c.eventSource.on(loaded, allowSaves);
     else allowSaves();
