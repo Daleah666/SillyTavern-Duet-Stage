@@ -10,7 +10,26 @@
  * Card Creator can still insert tabs in front of #duet-rail-body.
  */
 
+import { FEATURES, featureOn, setFeature } from './features.js';
+import { fileNameOf, isImageName, labelFromName, originalImage } from './images.js';
+import { catalogCastNames, catalogEntries, characterForFile } from './library-transfer.js';
+import {
+    beginSignIn,
+    beginSignInHere,
+    buildHubDocument,
+    downloadOriginal,
+    driveErrorText,
+    driveSignedIn,
+    hydrateDrive,
+    listHubPictures,
+    loadHub,
+    redirectUri,
+    saveHub,
+    signOutDrive,
+} from './drive.js';
+
 const MOODS = ['neutral', 'happy', 'flirty', 'smug', 'shy', 'flustered', 'sad', 'angry', 'surprised', 'curious', 'thinking', 'tired'];
+const GATED = new Set(['chats', 'cast', 'card', 'memory', 'library', 'subl', 'inner', 'solo', 'drive', 'mirror']);
 const MOOD_ALIAS = {
     idle: 'neutral', calm: 'neutral', serious: 'neutral', joy: 'happy', joyful: 'happy', excited: 'happy',
     playful: 'smug', teasing: 'smug', love: 'flirty', loving: 'flirty', embarrassed: 'flustered', blushing: 'flustered',
@@ -324,18 +343,18 @@ function mount() {
     <div id="duet-find" hidden role="listbox"></div>
   </div>
   <nav class="dv-nav" aria-label="Sections">
-    <button type="button" data-act="nav" data-nav="chats">${icon('pen')}<span class="lbl">New chat</span></button>
-    <button type="button" data-act="nav" data-nav="cast">${icon('cast')}<span class="lbl">Cast</span></button>
-    <button type="button" data-act="nav" data-nav="card">${icon('card')}<span class="lbl">Card</span></button>
-    <button type="button" data-act="nav" data-nav="memory">${icon('brain')}<span class="lbl">Memory</span></button>
-    <button type="button" data-act="nav" data-nav="library">${icon('panel')}<span class="lbl">Library</span></button>
-    <button type="button" data-act="nav" data-nav="subl">${icon('brain')}<span class="lbl">Subliminals</span></button>
-    <button type="button" data-act="nav" data-nav="inner">${icon('pen')}<span class="lbl">Inner voice</span></button>
-    <button type="button" data-act="nav" data-nav="solo">${icon('panel')}<span class="lbl">Solo Stage</span></button>
+    <button type="button" data-act="nav" data-nav="chats" data-feature="chats">${icon('pen')}<span class="lbl">New chat</span></button>
+    <button type="button" data-act="nav" data-nav="cast" data-feature="cast">${icon('cast')}<span class="lbl">Cast</span></button>
+    <button type="button" data-act="nav" data-nav="card" data-feature="card">${icon('card')}<span class="lbl">Card</span></button>
+    <button type="button" data-act="nav" data-nav="memory" data-feature="memory">${icon('brain')}<span class="lbl">Memory</span></button>
+    <button type="button" data-act="nav" data-nav="library" data-feature="library">${icon('panel')}<span class="lbl">Library</span></button>
+    <button type="button" data-act="nav" data-nav="subl" data-feature="subl">${icon('brain')}<span class="lbl">Subliminals</span></button>
+    <button type="button" data-act="nav" data-nav="inner" data-feature="inner">${icon('pen')}<span class="lbl">Inner voice</span></button>
+    <button type="button" data-act="nav" data-nav="solo" data-feature="solo">${icon('panel')}<span class="lbl">Solo Stage</span></button>
     <button type="button" data-act="nav" data-nav="more">${icon('dots')}<span class="lbl">More</span></button>
   </nav>
   <div id="duet-recent" class="dv-recent lbl" aria-label="Recent characters"></div>
-  <button type="button" class="dv-you" id="duet-you" data-act="nav" data-nav="cast" data-side="l">
+  <button type="button" class="dv-you" id="duet-you" data-act="nav" data-nav="cast" data-side="l" data-feature="cast">
     <span class="av" id="duet-you-av">?</span>
     <span class="lbl"><b id="duet-you-name">You</b><small id="duet-you-sub">Pick someone to talk to</small></span>
   </button>
@@ -349,15 +368,15 @@ function mount() {
   <section id="duet-log" class="dv-log" aria-live="polite" aria-label="Conversation"></section>
   <form id="duet-composer" class="dv-composer" autocomplete="off">
     <header class="dv-bar">
-      <button type="button" class="dv-chars" data-act="nav" data-nav="cast" data-duet-tip="Characters: choose who you're talking to">
+      <button type="button" class="dv-chars" data-act="nav" data-nav="cast" data-feature="cast" data-duet-tip="Characters: choose who you're talking to">
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="currentColor" opacity=".16"/><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="9" cy="10.5" r="1.2" fill="currentColor"/><circle cx="15" cy="10.5" r="1.2" fill="currentColor"/><path d="M8.6 14.2c.9 1.3 2.1 2 3.4 2s2.5-.7 3.4-2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
         <b>Characters</b>
       </button>
-      <button type="button" class="dv-who" data-act="nav" data-nav="cast" data-side="l" data-duet-tip="Your side"><span class="av" id="duet-chip-l">?</span><b id="duet-chip-l-name">You</b></button>
-      <button type="button" class="dv-who r" data-act="nav" data-nav="cast" data-side="r" data-duet-tip="Their side"><span class="av" id="duet-chip-r">?</span><b id="duet-chip-r-name">Them</b></button>
+      <button type="button" class="dv-who" data-act="nav" data-nav="cast" data-side="l" data-feature="cast" data-duet-tip="Your side"><span class="av" id="duet-chip-l">?</span><b id="duet-chip-l-name">You</b></button>
+      <button type="button" class="dv-who r" data-act="nav" data-nav="cast" data-side="r" data-feature="cast" data-duet-tip="Their side"><span class="av" id="duet-chip-r">?</span><b id="duet-chip-r-name">Them</b></button>
       <div class="dv-title"><b>Duet Stage</b><span id="duet-sub">SillyTavern</span></div>
-      <button type="button" class="dv-text" data-act="nav" data-nav="chats" data-duet-tip="New chat and past chats">New chat</button>
-      <button type="button" class="dv-text" data-act="nav" data-nav="memory" data-duet-tip="What she remembers">Memory</button>
+      <button type="button" class="dv-text" data-act="nav" data-nav="chats" data-feature="chats" data-duet-tip="New chat and past chats">New chat</button>
+      <button type="button" class="dv-text" data-act="nav" data-nav="memory" data-feature="memory" data-duet-tip="What she remembers">Memory</button>
       <button type="button" class="dv-text" data-act="show-column" data-duet-tip="Show the SillyTavern chat column">ST chat</button>
     </header>
     <textarea id="duet-ta" rows="2" placeholder="Pick a character to talk to" aria-label="Message"></textarea>
@@ -467,7 +486,10 @@ function renderChrome() {
             ? 'SillyTavern keeps the characters, chats and the AI connection. Pick someone in Cast to bring them on stage.'
             : '';
     }
-    document.getElementById('duet-scene')?.classList.toggle('is-solo', !!prefs().solo);
+    document.querySelectorAll('#duet-vn [data-feature]').forEach((el) => {
+        el.hidden = !featureOn(prefs(), el.getAttribute('data-feature'));
+    });
+    document.getElementById('duet-scene')?.classList.toggle('is-solo', featureOn(prefs(), 'solo') && !!prefs().solo);
     document.querySelectorAll('#duet-nav [data-nav]').forEach((btn) => {
         btn.setAttribute('aria-pressed', String(btn.getAttribute('data-nav') === S.drawer && S.drawer !== ''));
     });
@@ -615,7 +637,7 @@ async function paintFigure(id, ch, opts, token) {
     const name = ch?.name || opts.fallbackName || '';
     let url = '';
     let sprite = false;
-    if (ch) {
+    if (ch && featureOn(prefs(), 'sprites')) {
         const pack = await loadSprites(ch);
         if (token !== spriteToken) return;
         if (opts.expression?.src && pack.folder && opts.expression.src.toLowerCase().includes(`/characters/${pack.folder.toLowerCase()}/`)) {
@@ -750,6 +772,10 @@ async function swipe(dir) {
 
 function openDrawer(name, side) {
     if (side === 'l' || side === 'r') S.castSide = side;
+    if (name && GATED.has(name) && !featureOn(prefs(), name)) {
+        toast('info', 'That feature is off. Turn it on under Settings.');
+        return;
+    }
     if (S.drawer === name) {
         closeDrawer();
         return;
@@ -957,21 +983,38 @@ function memoryHTML() {
 
 function libraryHTML() {
     const ch = activeChar(getCtx());
-    if (!ch) return '<p class="dv-note">Pick their character. The library lists expression sprites SillyTavern already has for them.</p>';
-    return `<p class="dv-note">Sprites for ${esc(ch.name)}, from <code>/api/sprites/get</code>. The stage uses these for her face. Uploading writes into her sprites folder. Picture-making from the Claude artifact is not available here.</p>
-<div id="duet-lib" class="dv-grid"><p class="dv-note">Loading sprites…</p></div>
-<label class="dv-file">Upload a sprite
+    const names = catalogCastNames();
+    const pending = catalogEntries();
+    const preview = pending.slice(0, 8).map((item) => {
+        const who = Array.isArray(item.chars) && item.chars.length ? ` · ${item.chars.join(', ')}` : '';
+        return `<p class="dv-note">${esc(item.label || item.name)}${esc(who)}</p>`;
+    }).join('');
+    return `<p class="dv-note">${ch ? `Sprites for ${esc(ch.name)}.` : 'Pick a character to file pictures on them.'} Files are stored as you upload them. The tiles use object-fit: contain, so the picture keeps its own shape.</p>
+<div id="duet-lib" class="dv-grid"><p class="dv-note">${ch ? 'Loading sprites…' : 'No character selected yet.'}</p></div>
+<label class="dv-file">Add pictures, original size
+  <input id="duet-sprite-files" type="file" accept="image/*" multiple>
+</label>
+<label class="dv-file">One picture
   <input id="duet-sprite-file" type="file" accept="image/*">
 </label>
-<input id="duet-sprite-label" type="text" placeholder="Expression label, e.g. happy" aria-label="Sprite label">
-<button type="button" data-act="upload-sprite">Add sprite</button>`;
+<input id="duet-sprite-label" type="text" placeholder="Label for the one picture, e.g. happy" aria-label="Sprite label">
+<button type="button" data-act="upload-sprite">Add the one picture</button>
+<label class="dv-file">Import cards (PNG or JSON)
+  <input id="duet-import-cards" type="file" accept=".png,.json,.yaml,.yml,.charx,.byaf,image/png,application/json" multiple>
+</label>
+<button type="button" data-act="import-catalog">Import cast names from the Claude library</button>
+<p class="dv-note">${names.length} cast names in the Claude index (${esc(names.join(', '))}). ${pending.length} picture names, and no image files in that index. Pictures come from this upload or from Drive, unchanged.</p>
+${preview}${pending.length > 8 ? `<p class="dv-note">And ${pending.length - 8} more names.</p>` : ''}`;
 }
 
 async function fillLibrary() {
     const host = document.getElementById('duet-lib');
     if (!host || S.drawer !== 'library') return;
     const ch = activeChar(getCtx());
-    if (!ch) return;
+    if (!ch) {
+        host.innerHTML = '<p class="dv-note">No character selected, so there is no sprite folder to list yet.</p>';
+        return;
+    }
     const pack = await loadSprites(ch);
     if (!pack.list.length) {
         host.innerHTML = '<p class="dv-note">No expression sprites yet. Add one, or drop images in her sprites folder in SillyTavern.</p>';
@@ -1019,17 +1062,23 @@ function moreHTML() {
 <button type="button" data-act="nav" data-nav="settings">Settings</button>
 <button type="button" data-act="nav" data-nav="experimental">Experimental</button>
 <button type="button" data-act="nav" data-nav="updates">Updates</button>
-<button type="button" data-act="nav" data-nav="drive">Drive</button>
-<button type="button" data-act="nav" data-nav="mirror">Mirror</button>
+<button type="button" data-act="nav" data-nav="drive" data-feature="drive">Drive</button>
+<button type="button" data-act="nav" data-nav="mirror" data-feature="mirror">Mirror</button>
 <a href="https://github.com/Daleah666/SillyTavern-Card-Creator" target="_blank" rel="noopener">Character card extension</a>
 </div>
 <p class="dv-note">The masks button on the SillyTavern column still opens the side panel other extensions use.</p>`;
 }
 
+function featuresSettingsHTML() {
+    return `<div class="duet-features">${FEATURES.map((feature) => `<label class="check"><input type="checkbox" data-feature-toggle="${feature.id}" ${featureOn(prefs(), feature.id) ? 'checked' : ''}> ${esc(feature.label)}<small>${esc(feature.blurb)}</small></label>`).join('')}</div>`;
+}
+
 function settingsHTML() {
     const s = prefs();
     const dock = s.dock || 'middle';
-    return `<label>SillyTavern column dock
+    return `<p class="dv-note">Each switch is independent. Turning one off leaves SillyTavern and the other features alone. The same switches are in SillyTavern's extension settings.</p>
+${featuresSettingsHTML()}
+<label>SillyTavern column dock
       <select id="duet-set-dock2">
         <option value="middle" ${dock === 'middle' ? 'selected' : ''}>Middle</option>
         <option value="left" ${dock === 'left' ? 'selected' : ''}>Left</option>
@@ -1045,7 +1094,7 @@ function experimentalHTML() {
     return `<p class="dv-note">These Claude-artifact pieces are not wired up, because they talked to Claude, Drive, or a private hub:</p>
 <ul class="dv-note">
 <li>Picture and clip maker, Grok handoff, cut-outs</li>
-<li>My Hub sync and the agent ladder</li>
+<li>The agent ladder</li>
 <li>The Solo Stage ledger (mood gauges and growth charts)</li>
 <li>Desktop notifications and the muse visit physics</li>
 </ul>
@@ -1053,12 +1102,27 @@ function experimentalHTML() {
 }
 
 function updatesHTML() {
-    return `<p class="dv-note"><b>0.2.0</b> — Duet Stage inside SillyTavern. Two-character stage, Cast, Card, chats, memory, sprite library, subliminals, inner voice, solo view. Send, Continue and Reroll use the connection you already set in SillyTavern.</p>
+    return `<p class="dv-note"><b>0.3.0</b> — Google Drive save and load for cast, cards, memory, sprites and subliminals. Library import from the Claude index, from Drive, and from a bulk upload. Each feature has its own on/off switch. Pictures keep their original size.</p>
+<p class="dv-note"><b>0.2.0</b> — Duet Stage inside SillyTavern. Two-character stage, Cast, Card, chats, memory, sprite library, subliminals, inner voice, solo view. Send, Continue and Reroll use the connection you already set in SillyTavern.</p>
 <p class="dv-note"><b>0.1.1</b> — Chat column, dock, stow, text scale, expression sprite, side panel for other extensions.</p>`;
 }
 
 function driveHTML() {
-    return `<p class="dv-note">Claude Drive and My Hub sync are not available in this extension. Characters, chats and sprites are the files SillyTavern already keeps. Export a card from SillyTavern if you want a copy.</p>`;
+    if (!featureOn(prefs(), 'drive')) return '<p class="dv-note">Drive sync is off. Turn it on under Settings. Nothing is sent.</p>';
+    const bag = hydrateDrive(prefs());
+    const signed = driveSignedIn(bag);
+    return `<p class="dv-note">Save and load cast, cards, memory, the sprite library and subliminals. Pictures already in Drive are imported at their original size. This works from a local SillyTavern and from the sandbox, because it uses the browser, not a file on one computer.</p>
+<p class="dv-note">No secret is kept in the extension. The client ID and the token stay in SillyTavern settings for this browser.</p>
+<label>Google OAuth client ID
+  <input id="duet-drive-client" type="text" autocomplete="off" spellcheck="false" value="${esc(bag.clientId || '')}" placeholder="Public client ID, not a secret">
+</label>
+<p class="dv-note">Redirect URI to allow on that client: <code>${esc(redirectUri())}</code></p>
+<p id="duet-drive-status" class="dv-note">${signed ? 'Signed in on this browser.' : 'Not signed in yet.'}</p>
+<button type="button" class="primary" data-act="drive-signin">Sign in</button>
+<button type="button" data-act="drive-signin-here">Sign in here</button>
+<button type="button" data-act="drive-signout" ${signed ? '' : 'disabled'}>Sign out</button>
+<button type="button" data-act="drive-save" ${signed ? '' : 'disabled'}>Save to Drive</button>
+<button type="button" data-act="drive-load" ${signed ? '' : 'disabled'}>Load from Drive</button>`;
 }
 
 function mirrorHTML() {
@@ -1149,30 +1213,33 @@ async function createCharacter() {
     scheduleRender();
 }
 
-async function importCard(file) {
-    if (!file) return;
+async function importCard(file, select = true) {
+    if (!file) return '';
     const ext = (file.name.split('.').pop() || '').toLowerCase();
     const fd = new FormData();
-    fd.set('avatar', file);
+    fd.set('avatar', file, file.name);
     fd.set('file_type', ext);
     fd.set('user_name', getCtx().name1 || 'User');
     const res = await fetch('/api/characters/import', { method: 'POST', headers: formHeaders(), body: fd });
     const data = await res.json().catch(() => ({}));
     if (!res.ok || data.error || !data.file_name) {
-        toast('error', 'That card did not import.');
-        return;
+        if (select) toast('error', 'That card did not import.');
+        return '';
     }
     const avatar = data.file_name.endsWith('.png') ? data.file_name : `${data.file_name}.png`;
     await getCtx().getCharacters?.();
-    if (S.castSide === 'l') {
-        prefs().leftAvatar = avatar;
-        savePrefs();
-    } else {
-        await pickCharacter(avatar);
+    if (select) {
+        if (S.castSide === 'l') {
+            prefs().leftAvatar = avatar;
+            savePrefs();
+        } else {
+            await pickCharacter(avatar);
+        }
+        toast('success', 'Card imported.');
+        S.drawerDirty = true;
+        renderDrawer();
     }
-    toast('success', 'Card imported.');
-    S.drawerDirty = true;
-    renderDrawer();
+    return avatar;
 }
 
 async function createPersona() {
@@ -1273,6 +1340,8 @@ function saveMemory() {
     const note = document.getElementById('duet-note');
     if (mem) ctx.chatMetadata.duet_memory = mem.value;
     if (note) ctx.chatMetadata.note_prompt = note.value;
+    prefs().memoryBank = memoryRows();
+    savePrefs();
     applyMemory();
     ctx.saveMetadata?.();
     toast('success', 'Memory saved in this chat.');
@@ -1281,6 +1350,10 @@ function saveMemory() {
 function applyMemory() {
     const ctx = getCtx();
     if (typeof ctx.setExtensionPrompt !== 'function') return;
+    if (!featureOn(prefs(), 'memory')) {
+        ctx.setExtensionPrompt('st-duet-stage-memory', '', 0, 0, false, 0);
+        return;
+    }
     const mem = String(ctx.chatMetadata?.duet_memory || '').trim();
     ctx.setExtensionPrompt('st-duet-stage-memory', mem ? `[Duet memory]\n${mem}` : '', 0, 0, false, 0);
 }
@@ -1310,6 +1383,7 @@ function saveInner() {
 }
 
 async function askInner() {
+    if (!featureOn(prefs(), 'inner')) return;
     const ctx = getCtx();
     const chat = Array.isArray(ctx.chat) ? ctx.chat : [];
     let idx = -1;
@@ -1365,28 +1439,37 @@ async function askInner() {
     }
 }
 
+async function postSprite(file, folder, label) {
+    const original = originalImage(file, file.name);
+    const fd = new FormData();
+    fd.set('avatar', original, original.name || fileNameOf('', label));
+    fd.set('label', label);
+    fd.set('name', folder);
+    fd.set('spriteName', label);
+    const res = await fetch('/api/sprites/upload', { method: 'POST', headers: formHeaders(), body: fd });
+    if (!res.ok) throw new Error('upload');
+    return original.size;
+}
+
 async function uploadSprite() {
+    if (!featureOn(prefs(), 'library')) return;
     const ch = activeChar(getCtx());
     const file = document.getElementById('duet-sprite-file')?.files?.[0];
     if (!ch || !file) {
         toast('info', 'Choose an image first.');
         return;
     }
-    const folders = spriteFolders(ch);
-    const folder = folders[0];
+    const folder = spriteFolders(ch)[0];
     if (!folder) return;
-    const label = String(document.getElementById('duet-sprite-label')?.value || fileStem(file.name) || 'neutral').trim();
-    const fd = new FormData();
-    fd.set('avatar', file);
-    fd.set('label', label);
-    fd.set('name', folder);
-    fd.set('spriteName', label);
-    const res = await fetch('/api/sprites/upload', { method: 'POST', headers: formHeaders(), body: fd });
-    if (!res.ok) {
+    const label = String(document.getElementById('duet-sprite-label')?.value || labelFromName(file.name) || 'neutral').trim();
+    try {
+        await postSprite(file, folder, label);
+    } catch (e) {
+        console.warn('[st-duet-stage] sprite', e);
         toast('error', 'The sprite did not upload.');
         return;
     }
-    toast('success', `Added ${label}.`);
+    toast('success', `Added ${label} at its original size.`);
     fillLibrary().catch((e) => console.warn('[st-duet-stage] library', e));
     scheduleRender();
 }
@@ -1501,7 +1584,8 @@ function tickOverlays() {
     const now = Date.now();
     if (subl) {
         const lines = linesOf(s.subl.phrases);
-        if (s.subl.on && lines.length && now - (tickOverlays.sublAt || 0) > s.subl.everyS * 1000) {
+        const sublOn = featureOn(s, 'subl') && s.subl.on;
+        if (sublOn && lines.length && now - (tickOverlays.sublAt || 0) > s.subl.everyS * 1000) {
             tickOverlays.sublAt = now;
             subl.hidden = false;
             subl.style.opacity = String(s.subl.alpha);
@@ -1509,20 +1593,21 @@ function tickOverlays() {
             clearTimeout(tickOverlays.sublHide);
             tickOverlays.sublHide = setTimeout(() => { subl.hidden = true; }, Math.min(2200, s.subl.everyS * 400));
         }
-        if (!s.subl.on) subl.hidden = true;
+        if (!sublOn) subl.hidden = true;
     }
     if (drift) {
         const ch = activeChar(getCtx());
         const rec = ch?.avatar ? s.inner.byAvatar[ch.avatar] : null;
         const lines = linesOf([rec?.now, rec?.thoughts].filter(Boolean).join('\n'));
-        if (s.inner.on && lines.length && now - (tickOverlays.driftAt || 0) > 9000) {
+        const innerOn = featureOn(s, 'inner') && s.inner.on;
+        if (innerOn && lines.length && now - (tickOverlays.driftAt || 0) > 9000) {
             tickOverlays.driftAt = now;
             drift.hidden = false;
             drift.textContent = lines[Math.floor(Math.random() * lines.length)];
             clearTimeout(tickOverlays.driftHide);
             tickOverlays.driftHide = setTimeout(() => { drift.hidden = true; }, 3200);
         }
-        if (!s.inner.on) drift.hidden = true;
+        if (!innerOn) drift.hidden = true;
     }
 }
 
@@ -1553,6 +1638,359 @@ function renderFind(q) {
     for (const [key, name] of personas) bits.push(`<button type="button" data-act="pick-persona" data-key="${esc(key)}">${esc(name)} · persona</button>`);
     box.hidden = bits.length === 0;
     box.innerHTML = bits.join('') || '';
+}
+
+/* ---------------- library transfer and Drive ---------------- */
+
+function hasName(name) {
+    const want = String(name || '').trim().toLowerCase();
+    if (!want) return false;
+    return (getCtx().characters || []).some((ch) => ch && String(ch.name || '').trim().toLowerCase() === want);
+}
+
+function toCard(ch) {
+    const data = ch.data && typeof ch.data === 'object' ? ch.data : {};
+    const tags = Array.isArray(data.tags) ? data.tags : (Array.isArray(ch.tags) ? ch.tags : []);
+    return {
+        spec: 'chara_card_v2',
+        spec_version: '2.0',
+        data: {
+            name: ch.name || data.name || '',
+            description: field(ch, 'description'),
+            personality: field(ch, 'personality'),
+            scenario: field(ch, 'scenario'),
+            first_mes: field(ch, 'first_mes'),
+            mes_example: field(ch, 'mes_example'),
+            creator_notes: field(ch, 'creator_notes') || ch.creatorcomment || '',
+            system_prompt: field(ch, 'system_prompt'),
+            post_history_instructions: field(ch, 'post_history_instructions'),
+            tags,
+            creator: field(ch, 'creator'),
+            character_version: field(ch, 'character_version'),
+            alternate_greetings: Array.isArray(data.alternate_greetings) ? data.alternate_greetings : [],
+            extensions: data.extensions && typeof data.extensions === 'object' ? data.extensions : {},
+        },
+    };
+}
+
+function memoryRows() {
+    const ctx = getCtx();
+    const rows = Array.isArray(prefs().memoryBank) ? prefs().memoryBank.slice() : [];
+    const ch = activeChar(ctx);
+    if (!ch || !ctx.chatMetadata) return rows.slice(0, 40);
+    const row = {
+        avatar: ch.avatar || '',
+        name: ch.name || '',
+        chat: ch.chat || '',
+        duet_memory: String(ctx.chatMetadata.duet_memory || ''),
+        note_prompt: String(ctx.chatMetadata.note_prompt || ''),
+    };
+    const key = `${row.avatar}::${row.chat}`;
+    return [row, ...rows.filter((item) => `${item.avatar}::${item.chat}` !== key)].slice(0, 40);
+}
+
+async function ensureNamedCharacter(name) {
+    const clean = String(name || '').trim();
+    if (!clean || hasName(clean)) return false;
+    const send = async (greeting) => {
+        const fd = new FormData();
+        fd.set('ch_name', clean);
+        fd.set('description', '');
+        fd.set('personality', '');
+        fd.set('scenario', '');
+        fd.set('first_mes', greeting);
+        fd.set('mes_example', '');
+        fd.set('fav', 'false');
+        fd.set('talkativeness', '0.5');
+        return fetch('/api/characters/create', { method: 'POST', headers: formHeaders(), body: fd });
+    };
+    let res = await send('');
+    if (!res.ok) res = await send('.');
+    return res.ok;
+}
+
+async function importOriginalSprite(file, characterName) {
+    if (!featureOn(prefs(), 'library')) return 'off';
+    const want = String(characterName || '').trim().toLowerCase();
+    const ch = (getCtx().characters || []).find((item) => item && String(item.name || '').trim().toLowerCase() === want)
+        || activeChar(getCtx());
+    if (!ch) return 'no-character';
+    const label = labelFromName(file.name);
+    const pack = await loadSprites(ch);
+    if (pack.list.some((sprite) => String(sprite.label || '').toLowerCase() === label.toLowerCase())) return 'exists';
+    const folder = spriteFolders(ch)[0] || ch.name;
+    if (!folder) return 'no-character';
+    await postSprite(file, folder, label);
+    return 'added';
+}
+
+async function importLocalImages(fileList) {
+    if (!featureOn(prefs(), 'library')) return;
+    const files = [...fileList].filter((file) => isImageName(file.name) || String(file.type || '').startsWith('image/'));
+    let added = 0;
+    let exists = 0;
+    let failed = 0;
+    for (const file of files) {
+        const matched = characterForFile(file.name);
+        if (matched) await ensureNamedCharacter(matched);
+        await getCtx().getCharacters?.();
+        try {
+            const result = await importOriginalSprite(originalImage(file), matched);
+            if (result === 'added') added += 1;
+            else if (result === 'exists') exists += 1;
+            else failed += 1;
+        } catch (e) {
+            failed += 1;
+            console.warn('[st-duet-stage] import', file.name, e);
+        }
+    }
+    toast('success', `${added} pictures added at original size. ${exists} already here. ${failed} not added.`);
+    fillLibrary().catch((e) => console.warn('[st-duet-stage] library', e));
+    scheduleRender();
+}
+
+async function importLocalCards(fileList) {
+    let added = 0;
+    for (const file of fileList) {
+        const avatar = await importCard(file, false);
+        if (avatar) added += 1;
+    }
+    await getCtx().getCharacters?.();
+    toast(added ? 'success' : 'warning', added ? `${added} cards imported.` : 'No cards imported.');
+    S.drawerDirty = true;
+    renderDrawer();
+    scheduleRender();
+}
+
+async function importCatalogCast() {
+    if (!featureOn(prefs(), 'library') && !featureOn(prefs(), 'cast')) {
+        toast('info', 'Turn Library or Cast on first.');
+        return;
+    }
+    let created = 0;
+    for (const name of catalogCastNames()) {
+        if (await ensureNamedCharacter(name)) created += 1;
+    }
+    await getCtx().getCharacters?.();
+    toast('success', created ? `${created} cast cards added from the Claude library index. No pictures were drawn.` : 'Those cast names are already in SillyTavern.');
+    S.drawerDirty = true;
+    renderDrawer();
+    scheduleRender();
+}
+
+async function collectSnapshot() {
+    const ctx = getCtx();
+    const s = prefs();
+    const characters = (ctx.characters || []).filter(Boolean);
+    const spriteSources = [];
+    if (featureOn(s, 'library')) {
+        for (const ch of characters) {
+            const pack = await loadSprites(ch);
+            for (const sprite of pack.list) {
+                spriteSources.push({
+                    character: ch.name,
+                    label: sprite.label,
+                    path: sprite.path,
+                    fileName: fileNameOf(sprite.path, sprite.label),
+                });
+            }
+        }
+    }
+    return {
+        savedAt: new Date().toISOString(),
+        cast: {
+            personaKey: s.personaKey || '',
+            leftAvatar: s.leftAvatar || '',
+            personas: Object.entries(personaMap(ctx)).map(([key, name]) => ({ key, name })),
+            characters: characters.map((ch) => ({ name: ch.name, avatar: ch.avatar })),
+        },
+        cards: characters.map(toCard),
+        memory: memoryRows(),
+        subliminals: { on: !!s.subl.on, phrases: s.subl.phrases || '', everyS: s.subl.everyS, alpha: s.subl.alpha },
+        inner: { on: !!s.inner.on, byAvatar: { ...(s.inner.byAvatar || {}) } },
+        library: spriteSources.map(({ character, label, fileName }) => ({ character, label, fileName })),
+        spriteSources,
+    };
+}
+
+function driveStatus(text) {
+    const status = document.getElementById('duet-drive-status');
+    if (status) status.textContent = text;
+}
+
+function rememberClientId() {
+    const input = document.getElementById('duet-drive-client');
+    if (!input) return hydrateDrive(prefs());
+    const bag = hydrateDrive(prefs());
+    bag.clientId = input.value.trim();
+    savePrefs();
+    return bag;
+}
+
+async function driveSignIn(here) {
+    if (!featureOn(prefs(), 'drive')) return;
+    const bag = rememberClientId();
+    try {
+        if (here) {
+            await beginSignInHere(bag);
+            return;
+        }
+        await beginSignIn(bag);
+        savePrefs();
+        toast('success', 'Signed in to Google Drive.');
+        S.drawerDirty = true;
+        renderDrawer();
+    } catch (e) {
+        console.warn('[st-duet-stage] drive', e);
+        const text = driveErrorText(e);
+        driveStatus(text);
+        toast('error', text);
+    }
+}
+
+async function driveSave() {
+    if (!featureOn(prefs(), 'drive')) return;
+    const bag = rememberClientId();
+    try {
+        driveStatus('Saving…');
+        const snapshot = await collectSnapshot();
+        const files = [];
+        for (const row of snapshot.spriteSources) {
+            driveStatus(`Reading ${row.character} · ${row.label}`);
+            const res = await fetch(row.path);
+            if (!res.ok) continue;
+            const blob = await res.blob();
+            files.push({
+                character: row.character,
+                label: row.label,
+                name: row.fileName,
+                blob: originalImage(blob, row.fileName),
+            });
+        }
+        const doc = buildHubDocument(snapshot);
+        const result = await saveHub(bag, doc, files);
+        savePrefs();
+        driveStatus(`Saved. ${result.count} sprite file${result.count === 1 ? '' : 's'} uploaded at original size.`);
+        toast('success', 'My Hub is saved on Drive.');
+    } catch (e) {
+        console.warn('[st-duet-stage] drive save', e);
+        const text = driveErrorText(e);
+        driveStatus(text);
+        toast('error', text);
+    }
+}
+
+async function applyHub(doc) {
+    const s = prefs();
+    if (doc.subliminals) {
+        s.subl.on = !!doc.subliminals.on;
+        s.subl.phrases = String(doc.subliminals.phrases || '');
+        if (Number.isFinite(Number(doc.subliminals.everyS))) s.subl.everyS = Number(doc.subliminals.everyS);
+        if (Number.isFinite(Number(doc.subliminals.alpha))) s.subl.alpha = Number(doc.subliminals.alpha);
+    }
+    if (doc.inner && typeof doc.inner === 'object') {
+        s.inner.on = !!doc.inner.on;
+        s.inner.byAvatar = doc.inner.byAvatar && typeof doc.inner.byAvatar === 'object' ? doc.inner.byAvatar : {};
+    }
+    if (Array.isArray(doc.memory)) s.memoryBank = doc.memory;
+    prefs();
+    let cards = 0;
+    for (const card of doc.cards || []) {
+        const name = card?.data?.name || '';
+        if (!name || hasName(name)) continue;
+        const file = new File([JSON.stringify(card)], `${name}.json`, { type: 'application/json' });
+        if (await importCard(file, false)) cards += 1;
+    }
+    await getCtx().getCharacters?.();
+    if (doc.cast) {
+        if (doc.cast.personaKey) s.personaKey = String(doc.cast.personaKey);
+        if (doc.cast.leftAvatar) s.leftAvatar = String(doc.cast.leftAvatar);
+    }
+    const ctx = getCtx();
+    const ch = activeChar(ctx);
+    const row = (doc.memory || []).find((item) => ch && item.avatar === ch.avatar && (!item.chat || item.chat === ch.chat));
+    if (row && ctx.chatMetadata) {
+        ctx.chatMetadata.duet_memory = row.duet_memory || '';
+        if (row.note_prompt != null) ctx.chatMetadata.note_prompt = row.note_prompt;
+        ctx.saveMetadata?.();
+    }
+    applyMemory();
+    savePrefs();
+    return cards;
+}
+
+async function importDrivePictures(files, doc) {
+    if (!featureOn(prefs(), 'library')) return { added: 0, exists: 0, failed: 0 };
+    const bag = hydrateDrive(prefs());
+    let added = 0;
+    let exists = 0;
+    let failed = 0;
+    for (const file of files) {
+        if (!featureOn(prefs(), 'drive') || !featureOn(prefs(), 'library')) break;
+        try {
+            const blob = await downloadOriginal(bag, file.id);
+            const named = originalImage(blob, file.name || 'sprite.png');
+            let character = characterForFile(file.name);
+            if (!character && doc) {
+                const row = (doc.library || []).find((item) => item.driveFileId === file.id || item.fileName === file.name);
+                if (row?.character) character = row.character;
+            }
+            if (character) await ensureNamedCharacter(character);
+            await getCtx().getCharacters?.();
+            const result = await importOriginalSprite(named, character);
+            if (result === 'added') added += 1;
+            else if (result === 'exists') exists += 1;
+            else failed += 1;
+        } catch (e) {
+            failed += 1;
+            console.warn('[st-duet-stage] drive picture', file?.name, e);
+        }
+        driveStatus(`Pictures: ${added} added, ${exists} already here, ${failed} failed. Original size kept.`);
+    }
+    return { added, exists, failed };
+}
+
+async function driveLoad() {
+    if (!featureOn(prefs(), 'drive')) return;
+    const bag = rememberClientId();
+    try {
+        driveStatus('Loading…');
+        const { doc, folderId } = await loadHub(bag);
+        let cards = 0;
+        if (doc) cards = await applyHub(doc);
+        let pictures = [];
+        try {
+            pictures = await listHubPictures(bag, folderId);
+        } catch (e) {
+            console.warn('[st-duet-stage] drive pictures', e);
+        }
+        const imported = await importDrivePictures(pictures, doc);
+        savePrefs();
+        const text = doc
+            ? `Loaded the hub. ${cards} new cards. ${imported.added} pictures added at original size.`
+            : `No hub file yet. ${imported.added} pictures added from Drive at original size.`;
+        driveStatus(text);
+        toast('success', text);
+        S.drawerDirty = true;
+        renderDrawer();
+        scheduleRender();
+    } catch (e) {
+        console.warn('[st-duet-stage] drive load', e);
+        const text = driveErrorText(e);
+        driveStatus(text);
+        toast('error', text);
+    }
+}
+
+function applyFeatureChrome() {
+    if (S.drawer && GATED.has(S.drawer) && !featureOn(prefs(), S.drawer)) closeDrawer();
+    renderChrome();
+    applyMemory();
+    tickOverlays();
+    if (S.drawer === 'settings' || S.drawer === 'library' || S.drawer === 'drive') {
+        S.drawerDirty = true;
+        renderDrawer();
+    }
 }
 
 /* ---------------- events ---------------- */
@@ -1593,6 +2031,18 @@ const actions = {
     'save-inner': () => saveInner(),
     'ask-inner': () => askInner(),
     'upload-sprite': () => uploadSprite(),
+    'import-catalog': () => importCatalogCast(),
+    'drive-signin': () => driveSignIn(false),
+    'drive-signin-here': () => driveSignIn(true),
+    'drive-signout': () => {
+        signOutDrive(hydrateDrive(prefs()));
+        savePrefs();
+        toast('info', 'Signed out of Google Drive on this browser.');
+        S.drawerDirty = true;
+        renderDrawer();
+    },
+    'drive-save': () => driveSave(),
+    'drive-load': () => driveLoad(),
     'delete-sprite': (el) => deleteSprite(el.dataset.label || '', el.dataset.file || ''),
     'new-chat': () => newChat(),
     'open-chat': (el) => openChat(el.dataset.file || ''),
@@ -1622,6 +2072,20 @@ function onChange(ev) {
         const file = ev.target.files?.[0];
         importCard(file).catch((e) => console.warn('[st-duet-stage] import', e));
         ev.target.value = '';
+    } else if (id === 'duet-import-cards') {
+        importLocalCards(ev.target.files || []).catch((e) => console.warn('[st-duet-stage] cards', e));
+        ev.target.value = '';
+    } else if (id === 'duet-sprite-files') {
+        importLocalImages(ev.target.files || []).catch((e) => console.warn('[st-duet-stage] pictures', e));
+        ev.target.value = '';
+    } else if (id === 'duet-drive-client') {
+        rememberClientId();
+    } else if (ev.target?.getAttribute?.('data-feature-toggle')) {
+        const idName = ev.target.getAttribute('data-feature-toggle');
+        setFeature(prefs(), idName, !!ev.target.checked);
+        savePrefs();
+        hooks.applyLayout();
+        applyFeatureChrome();
     } else if (id === 'duet-subl-on' || id === 'duet-inner-on') {
         /* saved with the Save button; preview the toggle immediately */
         if (id === 'duet-subl-on') prefs().subl.on = !!ev.target.checked;
@@ -1777,6 +2241,7 @@ function migrateColumn() {
 
 export function bootVn(api) {
     Object.assign(hooks, api || {});
+    if (window.DuetStage) window.DuetStage.onFeatures = () => applyFeatureChrome();
     mount();
     migrateColumn();
     registerMenu();
@@ -1793,4 +2258,6 @@ export function bootVn(api) {
         if (S.drawer === 'library') fillLibrary().catch((e) => console.warn('[st-duet-stage] library', e));
     });
     if (drawer) obs.observe(drawer, { childList: true });
+    hooks.applyLayout();
+    applyFeatureChrome();
 }
