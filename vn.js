@@ -61,6 +61,9 @@ const S = {
     overlayTimer: 0,
     bound: false,
     logSig: '',
+    sug: [],
+    sugKey: '',
+    sugBusy: false,
 };
 
 let recognition = null;
@@ -86,6 +89,9 @@ function prefs() {
     if (typeof s.solo !== 'boolean') s.solo = false;
     if (typeof s.navCollapsed !== 'boolean') s.navCollapsed = false;
     if (s.vnStageInit !== true) s.vnStageInit = false;
+    if (typeof s.sugType !== 'string') s.sugType = 'spicy';
+    if (typeof s.sugAuto !== 'boolean') s.sugAuto = false;
+    if (typeof s.calm !== 'boolean') s.calm = false;
     return s;
 }
 
@@ -322,6 +328,9 @@ function icon(name) {
         dots: '<circle cx="6" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="18" cy="12" r="1.2"/>',
         search: '<circle cx="11" cy="11" r="6"/><path d="M20 20l-4.2-4.2"/>',
         spark: '<path d="M12 3l1.6 4.8L18.5 9.5 13.6 11 12 16l-1.6-5L5.5 9.5 10.4 7.8z"/>',
+        gear: '<circle cx="12" cy="12" r="3"/><path d="M12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21M5.6 5.6l1.8 1.8M16.6 16.6l1.8 1.8M5.6 18.4l1.8-1.8M16.6 7.4l1.8-1.8"/>',
+        still: '<circle cx="12" cy="5.5" r="2"/><path d="M12 8v7M8.5 11h7M12 15l-2.5 5M12 15l2.5 5"/>',
+        chat: '<path d="M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-7l-4 4v-4H6a2 2 0 0 1-2-2z"/>',
     };
     return `<svg class="sic" viewBox="0 0 24 24" aria-hidden="true">${paths[name] || paths.spark}</svg>`;
 }
@@ -331,14 +340,14 @@ function mount() {
     const root = document.createElement('div');
     root.id = 'duet-vn';
     root.innerHTML = `
-<aside id="duet-nav" aria-label="Duet Stage">
+<aside id="duet-nav" aria-label="Duet Staging">
   <div class="dv-brandrow">
-    <button type="button" class="dv-brand" data-act="nav" data-nav="">${icon('spark')}<b class="lbl">Duet Stage</b></button>
+    <button type="button" class="dv-brand" data-act="nav" data-nav=""><span class="dv-mark">${icon('spark')}</span><b class="lbl">Duet Staging</b></button>
     <button type="button" class="dv-icon" data-act="focus-find" data-duet-tip="Find characters and panels (Ctrl+K)" aria-label="Find">${icon('search')}</button>
     <button type="button" class="dv-icon" id="duet-nav-collapse" data-act="collapse-nav" data-duet-tip="Collapse sidebar" aria-label="Collapse sidebar">${icon('panel')}</button>
   </div>
   <div class="dv-search lbl">
-    <input id="duet-search" type="search" placeholder="Find…" aria-label="Find characters, chats and panels" autocomplete="off">
+    <input id="duet-search" type="search" placeholder="Find windows, settings, people" aria-label="Find characters, chats and panels" autocomplete="off">
     <kbd>Ctrl K</kbd>
     <div id="duet-find" hidden role="listbox"></div>
   </div>
@@ -353,6 +362,7 @@ function mount() {
     <button type="button" data-act="nav" data-nav="solo" data-feature="solo">${icon('panel')}<span class="lbl">Solo Stage</span></button>
     <button type="button" data-act="nav" data-nav="more">${icon('dots')}<span class="lbl">More</span></button>
   </nav>
+  <div class="dv-sec lbl"><i></i>Characters</div>
   <div id="duet-recent" class="dv-recent lbl" aria-label="Recent characters"></div>
   <button type="button" class="dv-you" id="duet-you" data-act="nav" data-nav="cast" data-side="l" data-feature="cast">
     <span class="av" id="duet-you-av">?</span>
@@ -374,23 +384,34 @@ function mount() {
       </button>
       <button type="button" class="dv-who" data-act="nav" data-nav="cast" data-side="l" data-feature="cast" data-duet-tip="Your side"><span class="av" id="duet-chip-l">?</span><b id="duet-chip-l-name">You</b></button>
       <button type="button" class="dv-who r" data-act="nav" data-nav="cast" data-side="r" data-feature="cast" data-duet-tip="Their side"><span class="av" id="duet-chip-r">?</span><b id="duet-chip-r-name">Them</b></button>
-      <div class="dv-title"><b>Duet Stage</b><span id="duet-sub">SillyTavern</span></div>
-      <button type="button" class="dv-text" data-act="nav" data-nav="chats" data-feature="chats" data-duet-tip="New chat and past chats">New chat</button>
-      <button type="button" class="dv-text" data-act="nav" data-nav="memory" data-feature="memory" data-duet-tip="What she remembers">Memory</button>
-      <button type="button" class="dv-text" data-act="show-column" data-duet-tip="Show the SillyTavern chat column">ST chat</button>
+      <div class="dv-title"><b id="duet-title">Duet Staging</b><span id="duet-sub">SillyTavern</span></div>
+      <button type="button" class="dv-ic" data-act="nav" data-nav="chats" data-feature="chats" data-duet-tip="New chat and past chats" aria-label="New chat and past chats">${icon('pen')}</button>
+      <button type="button" class="dv-ic" data-act="nav" data-nav="memory" data-feature="memory" data-duet-tip="What she remembers" aria-label="Memory">${icon('brain')}</button>
+      <button type="button" class="dv-plus" data-act="nav" data-nav="cast" data-side="r" data-feature="cast" data-duet-tip="Add or create a character" aria-label="Add or create a character">+</button>
     </header>
-    <textarea id="duet-ta" rows="2" placeholder="Pick a character to talk to" aria-label="Message"></textarea>
-    <footer class="dv-row">
-      <span class="dv-hint">Enter sends · Shift+Enter new line · [mood] sets a face</span>
-      <button type="button" id="duet-continue" data-act="continue">Continue</button>
-      <button type="button" id="duet-reroll" data-act="reroll">Reroll</button>
-      <button type="button" id="duet-stop" data-act="stop" hidden>Stop</button>
-      <button type="submit" id="duet-send" class="primary">Send</button>
+    <div id="duet-sug" class="dv-sug" hidden aria-label="Suggested replies"></div>
+    <div class="dv-write">
+      <textarea id="duet-ta" rows="2" placeholder="Pick a character to talk to" aria-label="Message" title="Enter sends. Shift+Enter makes a new line. [mood] sets her face."></textarea>
       <button type="button" id="duet-mic" class="dv-mic" data-act="mic" data-duet-tip="Speak the message" aria-label="Microphone">
         <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M6 11a6 6 0 0 0 12 0M12 17v4"/></svg>
       </button>
+    </div>
+    <footer class="dv-row">
+      <button type="button" class="dv-ic" id="duet-sug-btn" data-act="suggest" data-feature="suggest" data-duet-tip="Suggest three replies in the style on the right" aria-label="Suggest replies">✨</button>
+      <span class="dv-count" id="duet-count" data-duet-tip="Rough size of this chat"></span>
+      <span class="dv-grow"></span>
+      <button type="button" id="duet-continue" class="dv-ghost" data-act="continue">Continue</button>
+      <select id="duet-sug-type" data-feature="suggest" aria-label="Reply type for suggestions" data-duet-tip="Reply type for ✨ suggestions">${SUG_TYPES.map(([k, l]) => `<option value="${k}">${l}</option>`).join('')}</select>
+      <button type="button" id="duet-reroll" class="dv-ghost" data-act="reroll">Reroll</button>
+      <button type="button" id="duet-stop" data-act="stop" hidden>Stop</button>
+      <button type="submit" id="duet-send" class="primary">Send</button>
     </footer>
   </form>
+  <div id="duet-under" class="dv-under">
+    <button type="button" class="dv-uic" data-act="show-column" data-duet-tip="Show the SillyTavern chat column" aria-label="Show the SillyTavern chat column">${icon('chat')}</button><span class="dv-ulbl">ST chat</span>
+    <button type="button" class="dv-uic" id="duet-calm" data-act="calm" aria-pressed="false" data-duet-tip="Calm: she stands still, no idle sway" aria-label="Calm">${icon('still')}</button><span class="dv-ulbl">Calm</span>
+    <button type="button" class="dv-uic" data-act="nav" data-nav="settings" data-duet-tip="Stage settings" aria-label="Settings">${icon('gear')}</button><span class="dv-ulbl">Settings</span>
+  </div>
   <button type="button" id="duet-muse" data-act="muse" aria-label="Muse, the stage dragon" data-duet-tip="Muse">
     <svg viewBox="0 0 64 64" aria-hidden="true">
       <ellipse cx="34" cy="40" rx="16" ry="12" fill="#c084fc"/>
@@ -425,6 +446,11 @@ function mount() {
         ev.preventDefault();
         send().catch((e) => console.warn('[st-duet-stage] send', e));
     });
+    const form = document.getElementById('duet-composer');
+    const scene = document.getElementById('duet-scene');
+    if (form && scene && typeof ResizeObserver === 'function') {
+        new ResizeObserver(() => scene.style.setProperty('--duet-comp-h', `${form.offsetHeight}px`)).observe(form);
+    }
     document.getElementById('duet-search').addEventListener('keydown', (ev) => {
         if (ev.key === 'Escape') {
             ev.stopPropagation();
@@ -461,10 +487,12 @@ function renderChrome() {
     if (youSub) youSub.textContent = them?.name ? `Talking to ${them.name}` : 'Pick someone to talk to';
     if (chipL) chipL.textContent = you;
     if (chipR) chipR.textContent = them?.name || (ctx.groupId ? (ctx.name2 || 'Group') : 'Them');
+    const title = document.getElementById('duet-title');
+    if (title) title.textContent = them?.name || (ctx.groupId ? (ctx.name2 || 'Group') : 'Duet Staging');
     if (sub) {
         if (!them && !ctx.groupId) sub.textContent = 'Pick someone from Cast';
-        else if (!connected(ctx)) sub.textContent = `${them?.name || ctx.name2 || 'Chat'} · connect an API to reply`;
-        else sub.textContent = `${them?.name || ctx.name2 || 'Chat'} · ${ctx.onlineStatus}`;
+        else if (!connected(ctx)) sub.textContent = 'Connect an API to reply';
+        else sub.textContent = String(ctx.onlineStatus || 'Connected');
     }
     const youAv = document.getElementById('duet-you-av');
     const chipLAv = document.getElementById('duet-chip-l');
@@ -476,7 +504,7 @@ function renderChrome() {
     paintAv(chipRAv, them ? thumb('avatar', them.avatar) : '', them?.name || '?');
     const ta = document.getElementById('duet-ta');
     if (ta && document.activeElement !== ta) {
-        ta.placeholder = them ? `Message ${them.name}` : 'Pick a character to talk to';
+        ta.placeholder = them ? `Say something to ${them.name}…` : 'Pick a character to talk to';
     }
     const banner = document.getElementById('duet-banner');
     if (banner) {
@@ -490,6 +518,7 @@ function renderChrome() {
         el.hidden = !featureOn(prefs(), el.getAttribute('data-feature'));
     });
     document.getElementById('duet-scene')?.classList.toggle('is-solo', featureOn(prefs(), 'solo') && !!prefs().solo);
+    document.body.classList.toggle('duet-calm', !!prefs().calm);
     document.querySelectorAll('#duet-nav [data-nav]').forEach((btn) => {
         btn.setAttribute('aria-pressed', String(btn.getAttribute('data-nav') === S.drawer && S.drawer !== ''));
     });
@@ -497,10 +526,10 @@ function renderChrome() {
     renderComposerState();
     const scene = document.getElementById('duet-scene');
     if (scene) {
-        const youHue = hueOf(you);
-        const themHue = hueOf(them?.name || 'them');
-        scene.style.setProperty('--lc', `hsl(${youHue} 70% 72%)`);
-        scene.style.setProperty('--rc', `hsl(${themHue} 78% 72%)`);
+        /* the Duet Staging colours: lime for you, her card's own colour or pink for her */
+        const own = String(them?.data?.extensions?.companion_stage?.color || '');
+        scene.style.setProperty('--lc', '#c9f07a');
+        scene.style.setProperty('--rc', /^#[0-9a-f]{6}$/i.test(own) ? own : '#ff7cbf');
     }
 }
 
@@ -520,6 +549,7 @@ function renderRecent() {
     if (!host) return;
     const ctx = getCtx();
     const list = [...(ctx.characters || [])].filter(Boolean).sort((a, b) => (b.date_last_chat || 0) - (a.date_last_chat || 0)).slice(0, 4);
+    const now = activeChar(ctx);
     host.replaceChildren();
     for (const ch of list) {
         const btn = document.createElement('button');
@@ -529,10 +559,13 @@ function renderRecent() {
         btn.dataset.avatar = ch.avatar || '';
         btn.dataset.duetTip = ch.name || 'Character';
         btn.setAttribute('aria-label', ch.name || 'Character');
+        btn.setAttribute('aria-pressed', String(!!now && now.avatar === ch.avatar));
         const img = document.createElement('img');
         img.alt = '';
         img.src = thumb('avatar', ch.avatar);
-        btn.append(img);
+        const cap = document.createElement('span');
+        cap.textContent = ch.name || '?';
+        btn.append(img, cap);
         host.append(btn);
     }
 }
@@ -551,6 +584,115 @@ function renderComposerState() {
     if (reroll) reroll.disabled = busy || !lastSpeakerIsChar(ctx);
     if (mic) mic.classList.toggle('is-on', S.listening);
     document.getElementById('duet-composer')?.classList.toggle('is-busy', busy);
+    const count = document.getElementById('duet-count');
+    if (count) {
+        const chat = Array.isArray(ctx.chat) ? ctx.chat : [];
+        const tokens = chat.reduce((n, m) => n + (Number(m?.extra?.token_count) || 0), 0);
+        count.textContent = tokens ? `≈${tokens}` : (chat.length ? `${chat.length} lines` : '');
+    }
+    const calm = document.getElementById('duet-calm');
+    if (calm) calm.setAttribute('aria-pressed', String(!!prefs().calm));
+    const type = document.getElementById('duet-sug-type');
+    if (type && document.activeElement !== type) type.value = prefs().sugType;
+    const sugBtn = document.getElementById('duet-sug-btn');
+    if (sugBtn) sugBtn.disabled = busy || S.sugBusy || !lastSpeakerIsChar(ctx);
+    renderSug();
+}
+
+const SUG_TYPES = [
+    ['spicy', 'Spicy', 'charged, close and flirty; frank and adult, explicit only if the scene already is'],
+    ['romance', 'Romance', 'tender and relationship-first: what she means to you, a pet name, asking for her time or touch'],
+    ['soft', 'Soft', 'soft and eager to please: asking instead of telling, shy, quick to give in'],
+    ['even', 'Even', 'companion-like: one warm, one flirty, one that moves the story'],
+    ['bold', 'Bold', 'confident and leading: takes charge, teases back, sets a clear boundary'],
+    ['playful', 'Playful', 'playful: a joke, a dare, flirty nonsense'],
+    ['informative', 'Informative', 'useful and curious: a clarifying question, asking her to explain, the next practical step'],
+    ['controversial', 'Controversial', 'provocative: pushes back, asks the uncomfortable question, takes the opposite view'],
+];
+
+function sugKeyOf(ctx) {
+    const chat = Array.isArray(ctx.chat) ? ctx.chat : [];
+    const last = chat[chat.length - 1];
+    return `${ctx.chatId || ''}|${chat.length}|${last?.swipe_id ?? ''}|${String(last?.mes || '').length}`;
+}
+
+function parseSug(raw) {
+    return String(raw || '')
+        .split(/\n+/)
+        .map((line) => line.replace(/^\s*(?:[-*•]|\d+[.)])\s*/, '').replace(/^[^:\n]{1,24}:\s+/, '').replace(/^["“'`]+|["”'`]+$/g, '').trim())
+        .filter((line) => line.length > 1 && line.length <= 180)
+        .slice(0, 3);
+}
+
+function renderSug() {
+    const box = document.getElementById('duet-sug');
+    if (!box) return;
+    const ctx = getCtx();
+    if (S.sug.length && (S.sugKey !== sugKeyOf(ctx) || !featureOn(prefs(), 'suggest'))) S.sug = [];
+    const html = !featureOn(prefs(), 'suggest') ? '' : S.sugBusy
+        ? '<span class="wait">Thinking of replies…</span>'
+        : S.sug.map((text, i) => `<button type="button" data-act="use-sug" data-i="${i}">${esc(text)}</button>`).join('');
+    if (box.dataset.sig !== html) {
+        box.dataset.sig = html;
+        box.innerHTML = html;
+    }
+    box.hidden = !html;
+}
+
+async function suggest(auto) {
+    const ctx = getCtx();
+    if (!featureOn(prefs(), 'suggest')) return;
+    if (S.sugBusy || S.busy) return;
+    const chat = Array.isArray(ctx.chat) ? ctx.chat : [];
+    const last = chat[chat.length - 1];
+    if (!last || last.is_user || last.is_system) {
+        if (!auto) toast('info', 'Suggestions answer her latest line. She has not spoken last.');
+        return;
+    }
+    if (typeof ctx.generateQuietPrompt !== 'function') {
+        if (!auto) toast('warning', 'This SillyTavern build has no quiet prompt, so it cannot suggest replies.');
+        return;
+    }
+    if (!connected(ctx)) {
+        if (!auto) toast('info', 'Connect an API in SillyTavern first. Suggestions use that connection.');
+        return;
+    }
+    const you = personaName(ctx);
+    const her = last.name || ctx.name2 || 'her';
+    const type = SUG_TYPES.find((t) => t[0] === prefs().sugType) || SUG_TYPES[0];
+    const key = sugKeyOf(ctx);
+    S.sugBusy = true;
+    S.sug = [];
+    renderComposerState();
+    try {
+        const raw = await ctx.generateQuietPrompt({
+            quietPrompt: `Pause the roleplay. Write three different short replies that ${you} could say next, answering ${her}'s latest line. Style: ${type[2]}. Each reply is one sentence under 18 words, in ${you}'s own voice, first person. Output only the three replies, one per line. No numbering, no quotes, no names, no commentary.`,
+            skipWIAN: true,
+            responseLength: 140,
+        });
+        const list = parseSug(raw);
+        if (sugKeyOf(getCtx()) !== key) return;   /* the chat moved on while the model was thinking */
+        if (!list.length) {
+            if (!auto) toast('warning', 'No suggestions came back. Try again, or pick another reply type.');
+            return;
+        }
+        S.sug = list;
+        S.sugKey = key;
+    } catch (e) {
+        console.warn('[st-duet-stage] suggest', e);
+        if (!auto) toast('error', 'Suggestions could not reach the AI connection.');
+    } finally {
+        S.sugBusy = false;
+        renderComposerState();
+    }
+}
+
+function useSug(i) {
+    const text = S.sug[Number(i)];
+    const ta = document.getElementById('duet-ta');
+    if (!text || !ta) return;
+    ta.value = text;
+    ta.focus();
 }
 
 function logHTML() {
@@ -558,7 +700,7 @@ function logHTML() {
     const chat = Array.isArray(ctx.chat) ? ctx.chat : [];
     const them = activeChar(ctx);
     if (!them && !ctx.groupId) {
-        return `<div class="dv-empty"><b>Duet Stage</b><p>A one-on-one visual novel chat. Your character stands on the left, theirs on the right, and the dialogue runs between them. Open Cast and pick a SillyTavern character to load the stage.</p></div>`;
+        return `<div class="dv-empty"><b>Duet Staging</b><p>A one-on-one visual novel chat. Your character stands on the left, theirs on the right, and the dialogue runs between them. Open Cast and pick a SillyTavern character to load the stage.</p></div>`;
     }
     if (!chat.length) {
         return `<div class="dv-empty"><b>${esc(them?.name || ctx.name2 || 'Chat')}</b><p>No lines yet. Say something, or press Continue and SillyTavern will ask the connected model to begin.</p></div>`;
@@ -1086,6 +1228,8 @@ ${featuresSettingsHTML()}
       </select>
     </label>
 <label class="check"><input id="duet-set-column" type="checkbox" ${s.stowed ? '' : 'checked'}> Show the SillyTavern chat column</label>
+<label class="check"><input id="duet-set-sugauto" type="checkbox" ${s.sugAuto ? 'checked' : ''}> Suggest three replies after every line she says</label>
+<p class="dv-note">Off, the ✨ button under the box asks for them when you want them. On, each of her lines costs one extra short call to your AI connection. The list beside Reroll sets their style.</p>
 <p class="dv-note">Ctrl+wheel over the column, or over the stage log, scales message text. Drag the column edge to resize it. Stow still tucks it away.</p>
 <p class="dv-note">Text scale ${esc(s.textScale || 1)}. Column width ${esc(s.width || 640)}px.</p>`;
 }
@@ -1102,7 +1246,8 @@ function experimentalHTML() {
 }
 
 function updatesHTML() {
-    return `<p class="dv-note"><b>0.3.0</b> — Google Drive save and load for cast, cards, memory, sprites and subliminals. Library import from the Claude index, from Drive, and from a bulk upload. Each feature has its own on/off switch. Pictures keep their original size.</p>
+    return `<p class="dv-note"><b>0.3.1</b> — The Duet Staging look: the same fonts, pink name plates, glass chat box, her big on the right with her name behind her, and the little bar under the box (ST chat, Calm, Settings). New: ✨ suggests three replies in the style you pick beside Reroll. The live link with Duet Staging through the Duet Stage Companion. Reply suggestions and the link each have their own switch under Settings. Everything from 0.3.0 is still here.</p>
+<p class="dv-note"><b>0.3.0</b> — Google Drive save and load for cast, cards, memory, sprites and subliminals. Library import from the Claude index, from Drive, and from a bulk upload. Each feature has its own on/off switch. Pictures keep their original size.</p>
 <p class="dv-note"><b>0.2.0</b> — Duet Stage inside SillyTavern. Two-character stage, Cast, Card, chats, memory, sprite library, subliminals, inner voice, solo view. Send, Continue and Reroll use the connection you already set in SillyTavern.</p>
 <p class="dv-note"><b>0.1.1</b> — Chat column, dock, stow, text scale, expression sprite, side panel for other extensions.</p>`;
 }
@@ -2005,6 +2150,13 @@ const actions = {
         hooks.applyLayout();
     },
     'show-column': () => showColumn(true),
+    suggest: () => suggest(false),
+    'use-sug': (el) => useSug(el.dataset.i),
+    calm: () => {
+        prefs().calm = !prefs().calm;
+        savePrefs();
+        renderChrome();
+    },
     continue: () => continueChat(),
     reroll: () => reroll(),
     stop: () => stop(),
@@ -2066,6 +2218,13 @@ function onChange(ev) {
         renderChrome();
     } else if (id === 'duet-set-column') {
         showColumn(!!ev.target.checked);
+    } else if (id === 'duet-sug-type') {
+        prefs().sugType = ev.target.value;
+        savePrefs();
+        if (S.sug.length) suggest(false);
+    } else if (id === 'duet-set-sugauto') {
+        prefs().sugAuto = !!ev.target.checked;
+        savePrefs();
     } else if (id === 'duet-set-dock2') {
         hooks.setDock(ev.target.value);
     } else if (id === 'duet-import') {
@@ -2195,10 +2354,14 @@ function onStageEvent(key, args) {
         return;
     }
     if (key === 'GENERATION_ENDED' || key === 'GENERATION_STOPPED') {
+        const wasQuiet = S.quiet;
         clearTimeout(S.busyWatch);
         S.busy = false;
         S.quiet = false;
         scheduleRender();
+        if (key === 'GENERATION_ENDED' && !wasQuiet && !S.sugBusy && prefs().sugAuto) {
+            setTimeout(() => suggest(true).catch((e) => console.warn('[st-duet-stage] suggest', e)), 900);
+        }
         return;
     }
     if (key === 'CHAT_CHANGED' || key === 'CHAT_LOADED') {
@@ -2239,11 +2402,20 @@ function migrateColumn() {
     hooks.applyLayout();
 }
 
+function migrateLook() {
+    const s = prefs();
+    if (s.look022) return;
+    s.look022 = true;
+    s.solo = true;
+    savePrefs();
+}
+
 export function bootVn(api) {
     Object.assign(hooks, api || {});
     if (window.DuetStage) window.DuetStage.onFeatures = () => applyFeatureChrome();
     mount();
     migrateColumn();
+    migrateLook();
     registerMenu();
     bindEvents();
     applyMemory();

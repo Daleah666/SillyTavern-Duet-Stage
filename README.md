@@ -25,6 +25,27 @@ A one-on-one visual novel on top of the open SillyTavern chat. Your persona stan
 - The SillyTavern chat column still docks middle, left or right, resizes, scales message text with Ctrl+wheel, and stows. It starts stowed so the stage is the chat. **ST chat** brings the column back.
 - A right-side panel, `#duet-side-panel`, with a body `#duet-rail-body`. Other extensions attach their tabs there.
 
+## The Duet Staging look (0.3.1)
+
+The stage now wears the Duet Staging page's clothes: Unbounded, Instrument Sans, Instrument Serif and IBM Plex Mono (loaded from Google Fonts by `style.css`), the same dark tokens, pink for her and lime for you. Her card's own colour (`extensions.companion_stage.color`) replaces the pink when it is a hex colour.
+
+- Sidebar is 272px with the gradient mark, the Ctrl K chip, and a **Characters** strip of portrait tiles with names.
+- Lines are glass bubbles with a coloured name plate. Her newest line glows.
+- The chat box is one glass card: Characters, both chips, her name and connection status, New chat, Memory, +. Under it sits the little bar: **ST chat**, **Calm** (stops the idle sway) and **Settings**.
+- **✨ suggestions**: three short replies from the connected model through `generateQuietPrompt`, in the style picked beside Reroll (Spicy, Romance, Soft, Even, Bold, Playful, Informative, Controversial). A click puts one in the box. Settings has a switch to ask for them after every line she says; that costs one extra short call per line.
+- She stands big on the right with her name behind her, and the chat sits beside her. This is Solo Stage, switched on once by 0.3.1; Solo Stage in the sidebar switches the two-character stage back.
+- A narrow box drops chips and wraps its buttons instead of overflowing. Under 820px the sidebar folds to icons.
+
+## The Duet Staging link (sync.js, 0.3.1)
+
+With the **Duet Stage Companion** Chrome extension (0.2.0+, `chrome-companion/` in the desktop-companion repo) installed, a 🔗 button appears in SillyTavern's top bar. Open Duet Staging (the Claude page) in another tab of the same Chrome and the dot turns green. From then on:
+
+- **ST → stage**: her card (as chara_card_v2) and portrait, your persona name, the open chat's last 40 lines, every new line, and her expression as a mood.
+- **Stage → ST**: lines written on the stage (`/sendas`, `/send`, `/sys`; no generation here), her moods (`/emote`), her card (fills empty fields and `extensions.companion_stage`; "Replace her card" overwrites), her pictures as sprites, and memories into this chat's Duet memory.
+- Loops are stopped by marks: lines from the stage carry `extra.duet_id` here, lines from here are `by:"st"` there.
+
+The Claude page cannot be framed or opened as a linked popup (its `frame-ancestors` and opener policies forbid it), which is why the companion carries the messages: `st-bridge.js` in the SillyTavern tab, `bridge.js` in the stage tab, `background.js` between them. Nothing is stored and nothing leaves the browser.
+
 ## Settings
 
 `extensionSettings['st-duet-stage']`
@@ -50,7 +71,7 @@ A one-on-one visual novel on top of the open SillyTavern chat. Your persona stan
 
 SillyTavern's extension settings, and **More → Settings** on the stage, each have a checkbox:
 
-Stage takeover, Side panel, Chats, Cast, Card, Memory, Library, Stage sprites, Subliminals, Inner voice, Solo Stage, Drive sync, Mirror.
+Stage takeover, Side panel, Chats, Cast, Card, Memory, Library, Stage sprites, Subliminals, Inner voice, Solo Stage, Drive sync, Mirror, Reply suggestions, Duet Staging link.
 
 Turning one off hides that part and skips its work. The chat SillyTavern already had keeps working. Saved lines, cards and tokens stay where they were. The side-panel element stays in the page when its switch is off, so another extension looking for `#duet-side-panel` does not crash. Stage takeover off removes the column styling and the visual-novel shell.
 

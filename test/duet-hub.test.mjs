@@ -18,6 +18,16 @@ test('feature switches default on and do not clear each other', () => {
     assert.equal(setFeature(settings, 'not-a-feature', false), false);
 });
 
+test('reply suggestions and the Duet Staging link have their own switches', () => {
+    const settings = {};
+    assert.equal(featureOn(settings, 'suggest'), true);
+    assert.equal(featureOn(settings, 'link'), true);
+    assert.equal(setFeature(settings, 'suggest', false), true);
+    assert.equal(featureOn(settings, 'suggest'), false);
+    assert.equal(featureOn(settings, 'link'), true);
+    assert.equal(featureOn(settings, 'drive'), true);
+});
+
 test('image import keeps the original bytes', async () => {
     const bytes = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10, 1, 2, 3, 4, 9, 8]);
     const file = new File([bytes], 'wide-and-tall.png', { type: 'image/png' });

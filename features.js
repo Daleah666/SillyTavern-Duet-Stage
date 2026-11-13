@@ -18,6 +18,8 @@ export const FEATURES = [
     { id: 'solo', label: 'Solo Stage', blurb: 'Hide your side of the stage.' },
     { id: 'drive', label: 'Drive sync', blurb: 'Save and load cast, cards, memory, sprites and subliminals on Google Drive.' },
     { id: 'mirror', label: 'Mirror', blurb: 'The mirror page.' },
+    { id: 'suggest', label: 'Reply suggestions', blurb: 'The ✨ button and the three suggested replies. They use the AI connection SillyTavern already has.' },
+    { id: 'link', label: 'Duet Staging link', blurb: 'The link button in the top bar and the live link with the Duet Staging page.' },
 ];
 
 const IDS = new Set(FEATURES.map((feature) => feature.id));
