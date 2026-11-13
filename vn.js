@@ -616,8 +616,19 @@ function sugKeyOf(ctx) {
     return `${ctx.chatId || ''}|${chat.length}|${last?.swipe_id ?? ''}|${String(last?.mes || '').length}`;
 }
 
+/* A thinking model (Qwen 3, GLM) can hand back its scratch work with the answer when SillyTavern does not
+   strip it. Keep what follows the thinking. If the reply was cut off mid-thought, keep nothing. */
+function afterThinking(raw) {
+    const text = String(raw || '');
+    const lower = text.toLowerCase();
+    const shut = lower.lastIndexOf('</think>');
+    if (shut >= 0) return text.slice(shut + '</think>'.length);
+    const open = lower.indexOf('<think>');
+    return open >= 0 ? text.slice(0, open) : text;
+}
+
 function parseSug(raw) {
-    return String(raw || '')
+    return afterThinking(raw)
         .split(/\n+/)
         .map((line) => line.replace(/^\s*(?:[-*•]|\d+[.)])\s*/, '').replace(/^[^:\n]{1,24}:\s+/, '').replace(/^["“'`]+|["”'`]+$/g, '').trim())
         .filter((line) => line.length > 1 && line.length <= 180)
@@ -1246,7 +1257,8 @@ function experimentalHTML() {
 }
 
 function updatesHTML() {
-    return `<p class="dv-note"><b>0.3.1</b> — The Duet Staging look: the same fonts, pink name plates, glass chat box, her big on the right with her name behind her, and the little bar under the box (ST chat, Calm, Settings). New: ✨ suggests three replies in the style you pick beside Reroll. The live link with Duet Staging through the Duet Stage Companion. Reply suggestions and the link each have their own switch under Settings. Everything from 0.3.0 is still here.</p>
+    return `<p class="dv-note"><b>0.3.2</b> — With a thinking model (Qwen 3, GLM), ✨ suggestions and the inner voice now use only the answer, never the model's scratch notes.</p>
+<p class="dv-note"><b>0.3.1</b> — The Duet Staging look: the same fonts, pink name plates, glass chat box, her big on the right with her name behind her, and the little bar under the box (ST chat, Calm, Settings). New: ✨ suggests three replies in the style you pick beside Reroll. The live link with Duet Staging through the Duet Stage Companion. Reply suggestions and the link each have their own switch under Settings. Everything from 0.3.0 is still here.</p>
 <p class="dv-note"><b>0.3.0</b> — Google Drive save and load for cast, cards, memory, sprites and subliminals. Library import from the Claude index, from Drive, and from a bulk upload. Each feature has its own on/off switch. Pictures keep their original size.</p>
 <p class="dv-note"><b>0.2.0</b> — Duet Stage inside SillyTavern. Two-character stage, Cast, Card, chats, memory, sprite library, subliminals, inner voice, solo view. Send, Continue and Reroll use the connection you already set in SillyTavern.</p>
 <p class="dv-note"><b>0.1.1</b> — Chat column, dock, stow, text scale, expression sprite, side panel for other extensions.</p>`;
@@ -1556,7 +1568,7 @@ async function askInner() {
             skipWIAN: true,
             responseLength: 80,
         });
-        const clean = String(thought || '').trim();
+        const clean = afterThinking(thought).trim();
         if (!clean) {
             toast('warning', 'No inner thought came back.');
             return;
