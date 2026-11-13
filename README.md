@@ -116,6 +116,8 @@ Models that think first: a short ask can come back empty. Suggestions (140 token
 
 ## How changes land here
 
+Bots: read [`bot-pack.json`](bot-pack.json) first. It is one file with the rules, the checks, the board format and how to hand work back, and `AGENTS.md` points to it.
+
 One door. Anyone building on this extension (Cursor, another Claude session, a person) opens a pull request against `main` and leaves it unmerged. The Claude session named **SillyTavern merge door** checks it against the current `main`, merges both sides if `main` has moved, runs the checks, and merges it. Red can still merge a pull request herself.
 
 Do not upload or paste files over `main`. This extension updates itself in SillyTavern on every refresh, so a copy built on an older version silently undoes whatever landed since. Keep `autoupdate.js` and `"auto_update": true`, and add a line to `board.jsonl` for anything Red will notice.

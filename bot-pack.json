@@ -1,0 +1,127 @@
+{
+  "pack": "duet-stage-bot-pack",
+  "pack_version": 1,
+  "read_me_first": "You are a coding bot about to work on Red's SillyTavern extensions. Read this whole file before you change anything. It is the same for every bot: Cursor, a Claude session, anything else.",
+  "join_message": "You are joining work on Red's SillyTavern extensions. Before you change anything, read https://raw.githubusercontent.com/Daleah666/SillyTavern-Duet-Stage/main/bot-pack.json and follow its rules. Short version: build on a branch from main, open a pull request, do not merge it, and never upload files over main.",
+  "what_this_is": "Two SillyTavern extensions that Red installs from GitHub. Duet Stage turns the SillyTavern chat into a one-on-one visual novel stage. Card Creator adds side panels and a character card creator next to it.",
+  "repos": [
+    {
+      "name": "SillyTavern-Duet-Stage",
+      "url": "https://github.com/Daleah666/SillyTavern-Duet-Stage",
+      "install_url": "https://github.com/Daleah666/SillyTavern-Duet-Stage",
+      "branch": "main",
+      "version_is_in": "manifest.json",
+      "what": "The stage: look, chat box, reply suggestions, Drive sync, library, feature switches, the link with the Duet Staging page."
+    },
+    {
+      "name": "SillyTavern-Card-Creator",
+      "url": "https://github.com/Daleah666/SillyTavern-Card-Creator",
+      "install_url": "https://github.com/Daleah666/SillyTavern-Card-Creator",
+      "branch": "main",
+      "version_is_in": "manifest.json",
+      "what": "Side docks, the Right now emotion tracker, the Elfheim tab, the card creator page."
+    }
+  ],
+  "how_it_reaches_red": "Both extensions are installed from main and update themselves on every SillyTavern refresh (autoupdate.js, and auto_update: true in manifest.json). Whatever is merged to main is running in Red's SillyTavern after her next refresh. There is no staging step.",
+  "the_door": {
+    "rule": "One door. Changes reach main through one place, so two bots never overwrite each other.",
+    "steps": [
+      "Start a branch from the current main. Not from a copy you already had.",
+      "Make the change. Keep it to what was asked.",
+      "Run the checks listed under checks.",
+      "Add one line to board.jsonl if Red will notice the change.",
+      "Open a pull request against main and leave it unmerged.",
+      "Tell the door (see how_to_reach_the_door)."
+    ],
+    "never": [
+      "Never upload, paste or push files over main.",
+      "Never build on an old copy of the files. A copy built on an older version silently undoes whatever landed since.",
+      "Never remove autoupdate.js or auto_update: true.",
+      "Never read, change or ask for Red's AI connection, API keys or SillyTavern settings. The extensions use whatever SillyTavern is connected to.",
+      "Never merge your own pull request."
+    ],
+    "who_merges": "The Claude session titled SillyTavern merge door merges after it has merged main in, run the checks and read the diff. Red can also merge a pull request herself.",
+    "how_to_reach_the_door": {
+      "if_you_are_a_claude_session_on_reds_account": "Send a message to session_01An5rg1Et4NDhB57mTARx3Y with the repo, branch, commit and what the change should do.",
+      "if_you_are_any_other_bot": "Open the pull request, then tell Red it is ready and give her the link. Red tells the door. The door does not watch the repos on its own."
+    }
+  },
+  "checks": {
+    "where": "SillyTavern-Duet-Stage",
+    "unit": "node --test test/duet-hub.test.mjs",
+    "browser": "node test/standin/smoke.js",
+    "browser_needs": "Node 20 or newer and Playwright with Chromium.",
+    "what_the_browser_check_is": "A stand-in SillyTavern page (test/standin/host.html) with a mock SillyTavern.getContext(). It boots the extension in a real browser and checks send, suggestions, switches, the link, the drawers and three screen sizes. It is not a SillyTavern install: it says nothing about SillyTavern's own styles or a real model.",
+    "for_a_new_feature": "Add a query flag to host.html and a check to smoke.js. ?think=1, ?glm=1 and ?offline=1 are examples."
+  },
+  "board": {
+    "file": "board.jsonl in each repo, one JSON object per line",
+    "format": {
+      "t": "2026-11-13T20:26:00Z",
+      "who": "your name",
+      "to": "red",
+      "kind": "done",
+      "text": "One line, plain words."
+    },
+    "to": "red or all shows as a toast in Red's SillyTavern. Any other name (cursor, sera, claude) is a note between bots and shows nothing.",
+    "t": "UTC, exactly this shape. Lines show when t is later than the last one Red saw."
+  },
+  "check_on_reds_real_sillytavern": {
+    "who_can_run_it": "Only a bot or person on the computer where Red's SillyTavern runs. A cloud bot cannot reach it.",
+    "rules": "Look only. Do not send a chat message, change a setting, or open the AI connection panel.",
+    "steps": [
+      "Open http://localhost:8000 in a browser. SillyTavern must already be running.",
+      "Refresh, wait 10 seconds, refresh again. The extension reloads the page once when it updates itself.",
+      "In the browser console run: window.DuetStage.version and typeof window.DuetSync. The version should match manifest.json on main. DuetSync should be 'object'.",
+      "Look at the stage: a sidebar titled Duet Staging, a glass chat box, a sparkle button at its bottom left, a style list beside Reroll, and a small bar under the box (ST chat, Calm, Settings).",
+      "Open a chat where the character spoke last. Click the sparkle button once and wait up to 40 seconds.",
+      "Write down what appears: three reply chips, or a toast and its text. Note any chip that starts with <think.",
+      "Click one chip. It should fill the message box. Do not press Send.",
+      "Copy any console error that mentions st-duet-stage."
+    ],
+    "report_as": {
+      "version": "",
+      "duet_sync": "",
+      "look_ok": true,
+      "suggest_result": "chips | toast | nothing",
+      "chips": [],
+      "toast": "",
+      "seconds_to_answer": 0,
+      "connected_model": "the text under her name in the chat box",
+      "console_errors": []
+    }
+  },
+  "bots_on_this_project": [
+    {
+      "name": "SillyTavern merge door",
+      "is": "Claude session",
+      "does": "Merges into both repos, keeps the checks, fixes what it ships."
+    },
+    {
+      "name": "Sera",
+      "is": "Claude session (Duet Staging)",
+      "does": "Builds the Duet Staging page and the look SillyTavern copies. Has no access to these two repos, so she hands work to the door."
+    },
+    {
+      "name": "Cursor",
+      "is": "Cursor agent",
+      "does": "Builds features on branches and opens pull requests."
+    }
+  ],
+  "one_clicks": {
+    "duet_stage_pull_requests": "https://github.com/Daleah666/SillyTavern-Duet-Stage/pulls",
+    "duet_stage_history": "https://github.com/Daleah666/SillyTavern-Duet-Stage/commits/main",
+    "duet_stage_board": "https://github.com/Daleah666/SillyTavern-Duet-Stage/blob/main/board.jsonl",
+    "card_creator_pull_requests": "https://github.com/Daleah666/SillyTavern-Card-Creator/pulls",
+    "card_creator_history": "https://github.com/Daleah666/SillyTavern-Card-Creator/commits/main",
+    "card_creator_board": "https://github.com/Daleah666/SillyTavern-Card-Creator/blob/main/board.jsonl",
+    "open_a_pull_request_from_a_branch": "https://github.com/Daleah666/SillyTavern-Duet-Stage/compare/main...YOUR-BRANCH?expand=1",
+    "this_file": "https://raw.githubusercontent.com/Daleah666/SillyTavern-Duet-Stage/main/bot-pack.json"
+  },
+  "snapshot": {
+    "as_of": "2026-11-13",
+    "duet_stage": "0.3.3",
+    "card_creator": "0.3.4",
+    "note": "A snapshot. manifest.json on main is the truth."
+  }
+}
