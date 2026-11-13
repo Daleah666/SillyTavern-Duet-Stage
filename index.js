@@ -17,8 +17,9 @@ import './autoupdate.js';   // updates itself from GitHub on each refresh, and s
 import { bootVn } from './vn.js';
 import { FEATURES, ensureFeatures, featureOn, setFeature } from './features.js';
 import { completeSignIn, hydrateDrive, takeOauthReturn } from './drive.js';
+import { bootSync } from './sync.js';   // the live link with Duet Staging, through the Duet Stage Companion
 const MODULE = 'st-duet-stage';
-const VERSION = '0.3.0';
+const VERSION = '0.3.1';
 const PANEL_ID = 'duet-side-panel';
 const NEUTRAL_LABELS = ['neutral', 'normal', 'base', 'default', 'idle', 'standing', 'stand'];
 const SPRITE_EVENTS = [
@@ -318,7 +319,7 @@ function applyLayout() {
     body.classList.toggle('duet-panel-open', panelOpen);
     body.classList.toggle('duet-nav-collapsed', !!s.navCollapsed);
     body.dataset.duetDock = s.dock;
-    root.style.setProperty('--duet-nav-w', s.navCollapsed ? '60px' : '232px');
+    root.style.setProperty('--duet-nav-w', s.navCollapsed ? '60px' : '272px');
 
     const vn = document.getElementById('duet-vn');
     if (vn) vn.hidden = !stageOn;
@@ -326,6 +327,8 @@ function applyLayout() {
     if (backdrop) backdrop.hidden = !stageOn;
     const legacySprite = document.getElementById('duet-sprite');
     if (legacySprite && !stageOn) legacySprite.hidden = true;
+
+    try { window.DuetSync?.refresh?.(); } catch (e) { /* the link is optional */ }
 
     const panel = document.getElementById(PANEL_ID);
     if (panel) {
@@ -905,6 +908,7 @@ function boot() {
     window.addEventListener('resize', () => applyLayout());
     bindSpriteEvents();
     scheduleSprite();
+    try { bootSync(); } catch (e) { console.warn('[st-duet-stage] sync', e); }
     bootVn({
         setDock,
         setStowed,
