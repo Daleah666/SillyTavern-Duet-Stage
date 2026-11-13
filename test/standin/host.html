@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SillyTavern (stand-in)</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #171a21; color: #dcdcd2; font-family: "Noto Sans", sans-serif; }
+  #top-bar { position: fixed; top: 0; left: 0; right: 0; height: 40px; background: #23262e; z-index: 3005; }
+  #top-settings-holder { position: fixed; top: 0; left: 0; right: 0; height: 40px; display: flex; justify-content: center; gap: 14px; align-items: center; z-index: 3006; }
+  .drawer-icon { display: inline-block; width: 26px; height: 26px; border: 0; border-radius: 6px; background: #3a3f4b; color: #fff; }
+  #sheld { position: fixed; top: 40px; bottom: 0; left: calc(50% - 300px); width: 600px; display: flex; flex-direction: column; background: #1d2029; }
+  #chat { flex: 1; overflow: auto; padding: 10px; }
+  .mes { padding: 8px; border-bottom: 1px solid #333; }
+  #form_sheld { display: flex; padding: 8px; gap: 6px; background: #23262e; }
+  #send_textarea { flex: 1; min-height: 34px; }
+  #extensions_settings { position: fixed; left: 0; bottom: 0; width: 320px; max-height: 60vh; overflow: auto; background: #20232b; z-index: 5000; font-size: 12px; display: none; }
+  body.show-ext-settings #extensions_settings { display: block; }
+</style>
+<link rel="stylesheet" href="/scripts/extensions/third-party/SillyTavern-Duet-Stage/style.css">
+</head>
+<body>
+<div id="top-bar"></div>
+<div id="top-settings-holder">
+  <div class="drawer-icon" title="AI connection (plug)"></div>
+  <div class="drawer-icon" title="World Info"></div>
+  <div class="drawer-icon" title="Extensions"></div>
+</div>
+<div id="sheld">
+  <div id="sheldheader"></div>
+  <div id="chat"></div>
+  <div id="form_sheld"><textarea id="send_textarea"></textarea><div id="send_but">▶</div></div>
+</div>
+<div id="expression-wrapper"><div id="expression-holder"><img id="expression-image" alt=""></div></div>
+<div id="extensions_settings"></div>
+<script>
+(() => {
+  const q = new URLSearchParams(location.search);
+  window.calls = [];
+  window.pageErrors = [];
+  window.addEventListener('error', (e) => window.pageErrors.push(String(e.message || e.error)));
+  window.addEventListener('unhandledrejection', (e) => window.pageErrors.push('unhandled: ' + String(e.reason && e.reason.message || e.reason)));
+  const say = (kind) => (text, title) => window.calls.push(['toast', kind, String(text), String(title || '')]);
+  window.toastr = { success: say('success'), error: say('error'), info: say('info'), warning: say('warning') };
+  const ready = [];
+  window.jQuery = window.$ = (fn) => { if (typeof fn === 'function') { if (document.readyState === 'loading') ready.push(fn); else setTimeout(fn, 0); } return { on() {}, off() {}, length: 0 }; };
+  document.addEventListener('DOMContentLoaded', () => ready.splice(0).forEach((fn) => fn()));
+
+  const listeners = new Map();
+  const eventSource = {
+    on(name, fn) { if (!listeners.has(name)) listeners.set(name, []); listeners.get(name).push(fn); },
+    removeListener(name, fn) { const l = listeners.get(name) || []; const i = l.indexOf(fn); if (i >= 0) l.splice(i, 1); },
+    async emit(name, ...args) { for (const fn of [...(listeners.get(name) || [])]) { try { await fn(...args); } catch (e) { window.pageErrors.push('listener ' + name + ': ' + (e && e.message || e)); } } },
+  };
+  const keys = ['SETTINGS_LOADED', 'CHAT_CHANGED', 'CHAT_LOADED', 'MESSAGE_SENT', 'MESSAGE_RECEIVED', 'MESSAGE_SWIPED', 'MESSAGE_UPDATED', 'MESSAGE_DELETED', 'MESSAGE_EDITED', 'CHARACTER_EDITED', 'CHARACTER_MESSAGE_RENDERED', 'USER_MESSAGE_RENDERED', 'GROUP_UPDATED', 'GENERATION_STARTED', 'GENERATION_ENDED', 'GENERATION_STOPPED', 'STREAM_TOKEN_RECEIVED', 'APP_READY'];
+  const eventTypes = Object.fromEntries(keys.map((k) => [k, k.toLowerCase()]));
+
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const characters = [
+    { name: 'Bambi', avatar: 'bambi.png', description: 'A bubbly bunny wife.', date_last_chat: 30, data: { name: 'Bambi', description: 'A bubbly bunny wife.', extensions: { companion_stage: { color: '#ff7cbf' } } } },
+    { name: 'Seraphina', avatar: 'sera.png', description: 'A forest guardian.', date_last_chat: 20, data: { name: 'Seraphina', extensions: {} } },
+    { name: 'Valerie', avatar: 'valerie.png', description: 'An adventurer.', date_last_chat: 10, data: { name: 'Valerie', extensions: {} } },
+  ];
+  const chat = q.get('empty') ? [] : [
+    { name: 'Del', is_user: true, mes: 'Hey you. I had the longest day.', send_date: '2026-11-13T19:00:00Z', extra: { token_count: 11 } },
+    { name: 'Bambi', is_user: false, mes: '[flirty] Aww, come sit with me then. Tell me everything, I want every detail.', swipes: ['[flirty] Aww, come sit with me then. Tell me everything, I want every detail.'], swipe_id: 0, send_date: '2026-11-13T19:00:20Z', extra: { token_count: 23 } },
+  ];
+  let saved = {};
+  try { saved = JSON.parse(localStorage.getItem('mock-ext-settings') || '{}'); } catch (e) { saved = {}; }
+  if (q.get('fresh')) saved = {};
+  const state = {
+    extensionSettings: saved,
+    characters, chat,
+    characterId: q.get('nochar') ? undefined : '0',
+    chatId: 'Bambi - 2026-11-13',
+    name1: 'Del', name2: 'Bambi',
+    groupId: null, groups: [],
+    chatMetadata: {},
+    onlineStatus: q.get('offline') ? 'no_connection' : 'Featherless · Qwen 3.8 27B',
+    powerUserSettings: { personas: { 'del.png': 'Del' }, user_avatar: 'del.png' },
+    eventSource, eventTypes, event_types: eventTypes,
+    saveSettingsDebounced() { window.calls.push(['saveSettings']); localStorage.setItem('mock-ext-settings', JSON.stringify(state.extensionSettings)); },
+    getRequestHeaders: () => ({ 'Content-Type': 'application/json', 'X-CSRF-Token': 'mock' }),
+    getThumbnailUrl: (type, file) => `/thumbnail?type=${encodeURIComponent(type)}&file=${encodeURIComponent(file)}`,
+    substituteParams: (s) => String(s).replace(/\{\{user\}\}/gi, 'Del').replace(/\{\{char\}\}/gi, 'Bambi'),
+    messageFormatting: (mes) => `<p>${esc(mes).replace(/\*(.+?)\*/g, '<em>$1</em>')}</p>`,
+    shouldSendOnEnter: () => true,
+    setExtensionPrompt(...a) { window.calls.push(['setExtensionPrompt', ...a]); },
+    saveMetadata() { window.calls.push(['saveMetadata']); },
+    saveChat() { window.calls.push(['saveChat']); },
+    async getCharacters() { window.calls.push(['getCharacters']); },
+    async getOneCharacter() {},
+    async selectCharacterById(id) { window.calls.push(['selectCharacterById', id]); state.characterId = String(id); state.name2 = characters[id].name; await eventSource.emit(eventTypes.CHAT_CHANGED); },
+    async openCharacterChat(name) { window.calls.push(['openCharacterChat', name]); },
+    async executeSlashCommandsWithOptions(cmd) { window.calls.push(['slash', cmd]); return { pipe: '' }; },
+    stopGeneration() { window.calls.push(['stop']); },
+    swipe: {
+      async right() { window.calls.push(['swipe.right']); const m = chat[chat.length - 1]; if (m && !m.is_user) { m.swipes.push('[smug] Or we skip the talking. Your call.'); m.swipe_id = m.swipes.length - 1; m.mes = m.swipes[m.swipe_id]; await eventSource.emit(eventTypes.MESSAGE_SWIPED, chat.length - 1); } },
+      async left() { window.calls.push(['swipe.left']); },
+    },
+    async generate(type) {
+      window.calls.push(['generate', type]);
+      await eventSource.emit(eventTypes.GENERATION_STARTED, type);
+      const box = document.getElementById('send_textarea');
+      if (type === 'normal' && box.value.trim()) { chat.push({ name: 'Del', is_user: true, mes: box.value, extra: { token_count: 9 } }); box.value = ''; await eventSource.emit(eventTypes.MESSAGE_SENT, chat.length - 1); }
+      await new Promise((r) => setTimeout(r, 120));
+      if (type === 'continue') { const m = chat[chat.length - 1]; m.mes += ' And then some.'; m.swipes[m.swipe_id] = m.mes; }
+      else { const text = '[happy] Mmm, that is exactly what I hoped you would say.'; chat.push({ name: state.name2, is_user: false, mes: text, swipes: [text], swipe_id: 0, extra: { token_count: 17 } }); }
+      await eventSource.emit(eventTypes.MESSAGE_RECEIVED, chat.length - 1);
+      await eventSource.emit(eventTypes.GENERATION_ENDED, chat.length);
+    },
+    async generateQuietPrompt(arg) {
+      const room = typeof arg === 'string' ? 0 : Number(arg.responseLength) || 0;
+      window.calls.push(['quiet', typeof arg === 'string' ? arg : arg.quietPrompt, room]);
+      await eventSource.emit(eventTypes.GENERATION_STARTED, 'quiet');   /* a real SillyTavern announces quiet generations too */
+      await new Promise((r) => setTimeout(r, 150));
+      await eventSource.emit(eventTypes.GENERATION_ENDED, chat.length);
+      if (q.get('quietfail')) throw new Error('no connection');
+      const three = 'Come here and find out.\nI could think of a few things, starting with you.\nTell me what bored-you wants first.';
+      /* a thinking model whose scratch work reaches the extension, closed and cut off */
+      /* a model that always thinks first (GLM): a short allowance is all thinking. 'glm' = SillyTavern stripped it, so nothing is left;
+         'glmraw' = it arrives cut off mid-thought. With room, the thinking closes and the answer follows. */
+      if (q.get('glm') || q.get('glmraw')) {
+        if (room < 1000) return q.get('glm') ? '' : '<think>\nThe user wants three replies in a flirty tone.\nLet me keep each one under 18 words and';
+        return (q.get('glm') ? '' : '<think>\nThe user wants three replies in a flirty tone.\n</think>\n\n') + three;
+      }
+      if (q.get('think')) return '<think>\nThe user wants three replies in a flirty tone.\nLet me keep each one under 18 words.\n</think>\n\n' + three;
+      if (q.get('thinkopen')) return '<think>\nThe user wants three replies in a flirty tone.\nLet me keep each one under 18 words and';
+      return '1. "Come here and find out."\n- I could think of a few things, starting with you.\nDel: Tell me what bored-you wants first.';
+    },
+  };
+  window.SillyTavern = { getContext: () => state };
+  window.mock = { state, eventSource, eventTypes };
+  setTimeout(() => eventSource.emit(eventTypes.SETTINGS_LOADED), 50);
+})();
+</script>
+<script type="module" src="/scripts/extensions/third-party/SillyTavern-Duet-Stage/index.js"></script>
+</body>
+</html>

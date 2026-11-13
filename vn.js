@@ -64,6 +64,7 @@ const S = {
     sug: [],
     sugKey: '',
     sugBusy: false,
+    thinkFor: null,
 };
 
 let recognition = null;
@@ -627,6 +628,22 @@ function afterThinking(raw) {
     return open >= 0 ? text.slice(0, open) : text;
 }
 
+/* A thinking model can spend the whole allowance on its scratch work and hand back nothing (GLM always
+   thinks). An empty answer is asked again once with room to think. While the same connection is up, later
+   asks go straight to the roomy one. 2000 covers the 1800 that Duet Staging gives GLM on Featherless. */
+const THINK_ROOM = 2000;
+
+async function quietAnswer(ctx, quietPrompt, short) {
+    const ask = async (responseLength) => afterThinking(await ctx.generateQuietPrompt({ quietPrompt, skipWIAN: true, responseLength })).trim();
+    const link = String(ctx.onlineStatus || '');
+    if (S.thinkFor === link) return ask(THINK_ROOM);
+    const first = await ask(short);
+    if (first) return first;
+    const again = await ask(THINK_ROOM);
+    if (again) S.thinkFor = link;
+    return again;
+}
+
 function parseSug(raw) {
     return afterThinking(raw)
         .split(/\n+/)
@@ -676,11 +693,7 @@ async function suggest(auto) {
     S.sug = [];
     renderComposerState();
     try {
-        const raw = await ctx.generateQuietPrompt({
-            quietPrompt: `Pause the roleplay. Write three different short replies that ${you} could say next, answering ${her}'s latest line. Style: ${type[2]}. Each reply is one sentence under 18 words, in ${you}'s own voice, first person. Output only the three replies, one per line. No numbering, no quotes, no names, no commentary.`,
-            skipWIAN: true,
-            responseLength: 140,
-        });
+        const raw = await quietAnswer(ctx, `Pause the roleplay. Write three different short replies that ${you} could say next, answering ${her}'s latest line. Style: ${type[2]}. Each reply is one sentence under 18 words, in ${you}'s own voice, first person. Output only the three replies, one per line. No numbering, no quotes, no names, no commentary.`, 140);
         const list = parseSug(raw);
         if (sugKeyOf(getCtx()) !== key) return;   /* the chat moved on while the model was thinking */
         if (!list.length) {
@@ -1257,7 +1270,8 @@ function experimentalHTML() {
 }
 
 function updatesHTML() {
-    return `<p class="dv-note"><b>0.3.2</b> — With a thinking model (Qwen 3, GLM), ✨ suggestions and the inner voice now use only the answer, never the model's scratch notes.</p>
+    return `<p class="dv-note"><b>0.3.3</b> — ✨ suggestions and the inner voice now work on models that always think first (GLM): if the short ask comes back empty, it asks once more with room to think, then remembers for that connection.</p>
+<p class="dv-note"><b>0.3.2</b> — With a thinking model (Qwen 3, GLM), ✨ suggestions and the inner voice now use only the answer, never the model's scratch notes.</p>
 <p class="dv-note"><b>0.3.1</b> — The Duet Staging look: the same fonts, pink name plates, glass chat box, her big on the right with her name behind her, and the little bar under the box (ST chat, Calm, Settings). New: ✨ suggests three replies in the style you pick beside Reroll. The live link with Duet Staging through the Duet Stage Companion. Reply suggestions and the link each have their own switch under Settings. Everything from 0.3.0 is still here.</p>
 <p class="dv-note"><b>0.3.0</b> — Google Drive save and load for cast, cards, memory, sprites and subliminals. Library import from the Claude index, from Drive, and from a bulk upload. Each feature has its own on/off switch. Pictures keep their original size.</p>
 <p class="dv-note"><b>0.2.0</b> — Duet Stage inside SillyTavern. Two-character stage, Cast, Card, chats, memory, sprite library, subliminals, inner voice, solo view. Send, Continue and Reroll use the connection you already set in SillyTavern.</p>
@@ -1563,12 +1577,7 @@ async function askInner() {
     S.innerBusy = true;
     renderComposerState();
     try {
-        const thought = await ctx.generateQuietPrompt({
-            quietPrompt: `Write ${name}'s private inner thought about what just happened. One or two sentences, first person, no quotes, no asterisks.\n\nLatest line:\n${mesText(chat[idx]).slice(0, 1200)}`,
-            skipWIAN: true,
-            responseLength: 80,
-        });
-        const clean = afterThinking(thought).trim();
+        const clean = await quietAnswer(ctx, `Write ${name}'s private inner thought about what just happened. One or two sentences, first person, no quotes, no asterisks.\n\nLatest line:\n${mesText(chat[idx]).slice(0, 1200)}`, 80);
         if (!clean) {
             toast('warning', 'No inner thought came back.');
             return;

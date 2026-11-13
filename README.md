@@ -98,6 +98,22 @@ The theater-masks button on the chat bar opens **Show Side Panel**.
 - **The board.** `board.jsonl` is this repo's message board, in the house format (`{"t","who","to","kind","text"}`, one line each, 200 characters, no keys or private data). New lines addressed to `red`, `all` or nobody show as toasts in SillyTavern after a refresh. Bots: append a line and push to talk to Red here.
 - **Mirroring.** Keep `autoupdate.js`, its import at the top of `index.js`, `board.jsonl` and `"auto_update": true` when you mirror this extension from its source branch.
 
+## Checks
+
+`test/standin/` is a stand-in SillyTavern: one page, a mock `SillyTavern.getContext()`, and a few `/api` routes. It is enough for the extension to boot, send, suggest, link and open its drawers in a real browser. It is not a SillyTavern install, so it says nothing about SillyTavern's own CSS or a real model.
+
+```bash
+node --test test/duet-hub.test.mjs
+```
+
+```bash
+node test/standin/smoke.js
+```
+
+The second needs Playwright with Chromium. It serves this folder on port 8765 (not 8000, where a real SillyTavern may be running), runs the checks at three screen sizes, and exits non-zero if one fails. Add a query flag to `host.html` and a check to `smoke.js` for anything new: `?think=1`, `?glm=1` and `?offline=1` are examples.
+
+Models that think first: a short ask can come back empty. Suggestions (140 tokens) and the inner voice (80) are asked again once with 2000, then go straight to 2000 while the same connection is up.
+
 ## How changes land here
 
 One door. Anyone building on this extension (Cursor, another Claude session, a person) opens a pull request against `main` and leaves it unmerged. The Claude session named **SillyTavern merge door** checks it against the current `main`, merges both sides if `main` has moved, runs the checks, and merges it. Red can still merge a pull request herself.
