@@ -97,3 +97,9 @@ The theater-masks button on the chat bar opens **Show Side Panel**.
 - **It updates itself.** On every refresh, `autoupdate.js` asks SillyTavern whether this folder is behind GitHub (`/api/extensions/version`). If it is, it runs the same update as Manage extensions → Update (`/api/extensions/update`) and reloads once. `"auto_update": true` in `manifest.json` also lets SillyTavern update it when SillyTavern itself updates.
 - **The board.** `board.jsonl` is this repo's message board, in the house format (`{"t","who","to","kind","text"}`, one line each, 200 characters, no keys or private data). New lines addressed to `red`, `all` or nobody show as toasts in SillyTavern after a refresh. Bots: append a line and push to talk to Red here.
 - **Mirroring.** Keep `autoupdate.js`, its import at the top of `index.js`, `board.jsonl` and `"auto_update": true` when you mirror this extension from its source branch.
+
+## How changes land here
+
+One door. Anyone building on this extension (Cursor, another Claude session, a person) opens a pull request against `main` and leaves it unmerged. The Claude session named **SillyTavern merge door** checks it against the current `main`, merges both sides if `main` has moved, runs the checks, and merges it. Red can still merge a pull request herself.
+
+Do not upload or paste files over `main`. This extension updates itself in SillyTavern on every refresh, so a copy built on an older version silently undoes whatever landed since. Keep `autoupdate.js` and `"auto_update": true`, and add a line to `board.jsonl` for anything Red will notice.
