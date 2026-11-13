@@ -19,7 +19,7 @@ import { FEATURES, ensureFeatures, featureOn, setFeature } from './features.js';
 import { completeSignIn, hydrateDrive, takeOauthReturn } from './drive.js';
 import { bootSync } from './sync.js';   // the live link with Duet Staging, through the Duet Stage Companion
 const MODULE = 'st-duet-stage';
-const VERSION = '0.3.2';
+const VERSION = '0.3.3';
 const PANEL_ID = 'duet-side-panel';
 const NEUTRAL_LABELS = ['neutral', 'normal', 'base', 'default', 'idle', 'standing', 'stand'];
 const SPRITE_EVENTS = [
