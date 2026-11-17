@@ -68,6 +68,8 @@
   let saved = {};
   try { saved = JSON.parse(localStorage.getItem('mock-ext-settings') || '{}'); } catch (e) { saved = {}; }
   if (q.get('fresh')) saved = {};
+  /* ?classic=1: the Clean stage off, for the talk layout and side panel checks */
+  if (q.get('classic')) saved['st-duet-stage'] = { ...(saved['st-duet-stage'] || {}), features: { ...((saved['st-duet-stage'] || {}).features || {}), clean: false } };
   /* ?hearts=1: Card Creator's 💗 Right now bars for Bambi, as that extension saves them */
   if (q.get('hearts')) saved['st-card-creator'] = { hearts: { 'bambi.png': { aff: 64, trust: 52, spark: 71, comfort: 48, jeal: 12, energy: 80, emo: 'flirty', level: 6 } } };
   /* ?idle=1: Bambi's sprite folder with idle clips named like Del's (mood first, then the motion), next to her stills.

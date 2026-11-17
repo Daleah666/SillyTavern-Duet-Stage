@@ -87,7 +87,7 @@ const vis = (page, sel) => page.evaluate((s) => { const e = document.querySelect
             // 0.3.0 features are still wired in
             await page.click('#duet-under [data-nav="settings"]'); await sleep(400);
             const toggles = await page.evaluate(() => [...document.querySelectorAll('#duet-drawer [data-feature-toggle]')].map((x) => x.getAttribute('data-feature-toggle') + (x.checked ? '+' : '-')));
-            check(L, 'Settings lists 17 switches, all on, with suggestions, the link, the talk layout and the scene notes', toggles.length === 17 && toggles.every((t) => t.endsWith('+')) && toggles.includes('suggest+') && toggles.includes('link+') && toggles.includes('habit+') && toggles.includes('scenefill+'), toggles);
+            check(L, 'Settings lists 18 switches, all on, with the Clean stage, suggestions, the link, the talk layout and the scene notes', toggles.length === 18 && toggles.includes('clean+') && toggles.every((t) => t.endsWith('+')) && toggles.includes('suggest+') && toggles.includes('link+') && toggles.includes('habit+') && toggles.includes('scenefill+'), toggles);
             await page.screenshot({ path: path.join(out, `${L}-settings.png`) });
 
             await page.click('#duet-drawer [data-feature-toggle="suggest"]'); await sleep(400);
@@ -231,7 +231,7 @@ const vis = (page, sel) => page.evaluate((s) => { const e = document.querySelect
 
         // ---------- the talk layout (0.4.0): her on the right panel with her idle clips, your game panel on the left ----------
         {
-            const { ctx, page, log } = await open(browser, m, { query: '?fresh=1&idle=1&hearts=1' });
+            const { ctx, page, log } = await open(browser, m, { query: '?fresh=1&classic=1&idle=1&hearts=1' });
             const box = (sel) => page.evaluate((s) => { const e = document.querySelector(s); if (!e) return null; const b = e.getBoundingClientRect(); return { l: Math.round(b.left), t: Math.round(b.top), r: Math.round(b.right), b: Math.round(b.bottom) }; }, sel);
             const g = { game: await box('#duet-game'), her: await box('#duet-her'), fig: await box('#duet-fig-r'), log: await box('#duet-log'), comp: await box('#duet-composer') };
             const st = await page.evaluate(() => ({ cls: document.getElementById('duet-scene').className, figL: getComputedStyle(document.getElementById('duet-fig-l')).display, fig: document.getElementById('duet-fig-r').className, src: document.querySelector('#duet-fig-r img')?.getAttribute('src') || '' }));
@@ -248,14 +248,14 @@ const vis = (page, sel) => page.evaluate((s) => { const e = document.querySelect
                 const plate = r(them.querySelector(':scope > b')), tb = r(them), yb = r(you);
                 const cs = getComputedStyle(them), meter = r(document.querySelector('#duet-game [data-bar="aff"] > i'));
                 return {
-                    flush: Math.abs(game.l - nav.r) < 2 && Math.abs(game.t - scene.t) < 2 && Math.abs(game.b - scene.b) < 2, gameW: Math.round(game.w), gameBg: getComputedStyle(document.getElementById('duet-game')).backgroundColor,
+                    flush: Math.abs(game.l - nav.r) < 2 && Math.abs(game.t - scene.t) < 2 && Math.abs(game.b - scene.b) < 2, gameW: Math.round(game.w), gameWant: Math.round(Math.min(420, Math.max(248, innerWidth * 0.14 + 40))), gameBg: getComputedStyle(document.getElementById('duet-game')).backgroundColor,
                     figShare: +(fig.w / her.w).toFixed(2), figH: +(fig.h / scene.h).toFixed(2), figAtEdge: Math.abs(fig.r - her.r) < 2,
-                    logW: Math.round(log.w), logWant: Math.round(Math.min(720, her.w * 0.6)), logPad: Math.round(log.l - her.l), padWant: Math.round(Math.max(28, her.w * 0.04)),
+                    logW: Math.round(log.w), logWant: Math.round(Math.min(Math.min(980, Math.max(720, innerWidth * 0.34)), her.w * 0.6)), logPad: Math.round(log.l - her.l), padWant: Math.round(Math.max(28, her.w * 0.04)),
                     herRight: tb.r > yb.r && tb.l > yb.l, plateRight: Math.round(tb.r - plate.r), cornerTR: cs.borderTopRightRadius, cornerTL: getComputedStyle(you).borderTopLeftRadius,
                     hairlines: document.querySelectorAll('#duet-game .dv-isec > h4').length, meterH: Math.round(meter.h),
                 };
             });
-            check(m.label, 'talk layout follows the Duet panels: flat 300px panel flush to the sidebar, her 46% wide at the stage edge, a min(720px, 60%) chat column, her plate on the right', duet.flush && duet.gameW === 300 && duet.gameBg === 'rgb(18, 21, 28)' && Math.abs(duet.figShare - 0.46) < 0.02 && duet.figH >= 0.94 && duet.figAtEdge && Math.abs(duet.logW - duet.logWant) <= 2 && Math.abs(duet.logPad - duet.padWant) <= 2 && duet.herRight && duet.plateRight >= 12 && duet.plateRight <= 16 && duet.cornerTR === '6px' && duet.cornerTL === '6px' && duet.hairlines === 4 && duet.meterH === 8, duet);
+            check(m.label, 'talk layout follows the Duet panels: a flat panel flush to the sidebar sized to the window, her 46% wide at the stage edge, a chat column of at most 60%, her plate on the right', duet.flush && Math.abs(duet.gameW - duet.gameWant) <= 1 && duet.gameBg === 'rgb(18, 21, 28)' && Math.abs(duet.figShare - 0.46) < 0.02 && duet.figH >= 0.94 && duet.figAtEdge && Math.abs(duet.logW - duet.logWant) <= 2 && Math.abs(duet.logPad - duet.padWant) <= 2 && duet.herRight && duet.plateRight >= 12 && duet.plateRight <= 16 && duet.cornerTR === '6px' && duet.cornerTL === '6px' && duet.hairlines === 4 && duet.meterH === 8, duet);
             await page.fill('#duet-note-quest', 'Get her to admit she missed me'); await page.press('#duet-note-quest', 'Tab'); await sleep(300);
             const quest = await page.evaluate(() => ({ meta: window.mock.state.chatMetadata.duet_scene, saved: window.calls.some((c) => c[0] === 'saveMetadata'), by: document.querySelector('#duet-game .dv-isec:nth-of-type(3) .dv-by')?.textContent }));
             check(m.label, 'a quest you type saves on this chat and is marked yours', quest.meta.quest === 'Get her to admit she missed me' && quest.meta.mine.join() === 'quest' && quest.saved && quest.by === 'yours', quest);
@@ -299,13 +299,13 @@ const vis = (page, sel) => page.evaluate((s) => { const e = document.querySelect
             const errs = await errorsOf(page, log);
             check(m.label, 'no errors in the talk layout pass', !errs.page.length && !errs.console.length && !errs.failed.length, errs);
             await ctx.close();
-            const none = await open(browser, m, { query: '?fresh=1&nochar=1' });
+            const none = await open(browser, m, { query: '?fresh=1&classic=1&nochar=1' });
             const n = await none.page.evaluate(() => ({ cls: document.getElementById('duet-scene').className, game: document.getElementById('duet-game').hidden }));
             check(m.label, 'with nobody on stage the talk layout stays out of the way', !/is-habit/.test(n.cls) && n.game, n);
             await none.ctx.close();
 
             // the scene notes with a model that answers off-format, and an old 0.4.0 quest
-            const junk = await open(browser, m, { query: '?fresh=1&notes=junk' });
+            const junk = await open(browser, m, { query: '?fresh=1&classic=1&notes=junk' });
             await junk.page.evaluate(() => { const meta = window.mock.state.chatMetadata; delete meta.duet_scene; meta.duet_quest = 'Old quest from 0.4.0'; window.DuetStage.refresh();   /* a chat saved by 0.4.0 */ }); await sleep(400);
             await junk.page.click('#duet-game [data-act="scene-fill"]'); await sleep(900);
             const j = await junk.page.evaluate(() => ({ asks: window.calls.filter((c) => c[0] === 'quiet-scene').length, toast: window.calls.filter((c) => c[0] === 'toast').map((c) => c[2]), f: [...document.querySelectorAll('#duet-game [data-note]')].map((x) => x.dataset.note + '=' + x.value).join('|'), btn: document.querySelector('#duet-game [data-act="scene-fill"]')?.disabled, errs: window.pageErrors }));
@@ -313,9 +313,119 @@ const vis = (page, sel) => page.evaluate((s) => { const e = document.querySelect
             await junk.ctx.close();
         }
 
+        // ---------- 0.6.0: panels that follow the window and fold away, remembered per screen size ----------
+        {
+            const { ctx, page, log } = await open(browser, m, { width: 1920, height: 1018, query: '?fresh=1&classic=1&idle=1' });
+            const L = m.label;
+            const st = () => page.evaluate(() => {
+                const v = (id) => { const e = document.getElementById(id); if (!e || e.hidden || !e.getClientRects().length) return false; const cs = getComputedStyle(e), b = e.getBoundingClientRect(); return cs.display !== 'none' && cs.visibility !== 'hidden' && b.left < innerWidth && b.right > 0; };
+                const r = (sel) => document.querySelector(sel)?.getBoundingClientRect() || { width: 0, height: 0 };
+                return { game: v('duet-game'), gameTab: v('duet-game-tab'), side: v('duet-side-panel'), sideTab: v('duet-side-tab'), tucked: (() => { const p = document.getElementById('duet-side-panel'); return p.classList.contains('duet-tucked') && p.inert && p.getBoundingClientRect().left >= innerWidth; })(), gameW: Math.round(r('#duet-game').width), sideW: Math.round(r('#duet-side-panel').width), x: [r('#duet-game .dv-fold'), r('#duet-sp-close')].map((b) => Math.round(Math.min(b.width, b.height))), img: Math.round(r('#duet-fig-r img').height), fig: Math.round(r('#duet-fig-r').height) };
+            });
+            await page.evaluate(() => window.DuetStage.toggleSidePanel()); await sleep(300);
+            let s = await st();
+            check(L, '1920: both panels open, sized to the window (game 309px, side 326px), 36px close buttons, her sprite fills her height', s.game && s.side && !s.gameTab && !s.sideTab && Math.abs(s.gameW - 309) <= 1 && Math.abs(s.sideW - 326) <= 1 && s.x.every((n) => n >= 36) && s.img >= s.fig - 2, s);
+            await page.keyboard.press('Escape'); await sleep(500);
+            const one = await st();
+            await page.keyboard.press('Escape'); await sleep(250);
+            s = await st();
+            check(L, 'Esc tucks the right panel into the right edge (slid off screen, inert), then closes the game panel, each leaving its tab', !one.side && one.tucked && one.game && one.sideTab && !s.game && s.gameTab && s.sideTab, { one, s });
+            await page.setViewportSize({ width: 2560, height: 1290 }); await sleep(400);
+            s = await st();
+            check(L, '2560: both open again (closed is per screen size) and wider (game 398px, side 435px)', s.game && s.side && Math.abs(s.gameW - 398) <= 1 && Math.abs(s.sideW - 435) <= 1, s);
+            await page.setViewportSize({ width: 1920, height: 1018 }); await sleep(400);
+            s = await st();
+            check(L, 'back at 1920 both are still closed', !s.game && !s.side && s.gameTab && s.sideTab, s);
+            await page.click('#duet-game-tab'); await page.click('#duet-side-tab'); await sleep(500);
+            s = await st();
+            check(L, 'the edge tabs bring both panels back', s.game && s.side && !s.gameTab && !s.sideTab, s);
+            await page.click('#duet-ta'); await page.keyboard.press('Escape'); await sleep(250);
+            s = await st();
+            check(L, 'Esc in the chat box closes nothing', s.game && s.side, s);
+            await page.click('#duet-game .dv-fold'); await page.click('#duet-sp-close'); await sleep(500);
+            s = await st();
+            check(L, 'the ✕ buttons close both panels', !s.game && !s.side && s.gameTab && s.sideTab, s);
+            await page.click('#duet-game-tab'); await page.click('#duet-side-tab'); await sleep(500);
+            await page.setViewportSize({ width: 1024, height: 700 }); await sleep(400);
+            await page.mouse.click(600, 400); await sleep(500);
+            s = await st();
+            check(L, '1024: a click on the stage outside the panels closes them', !s.game && !s.side && s.gameTab && s.sideTab, s);
+            await page.setViewportSize({ width: 1920, height: 1018 }); await sleep(400);
+            s = await st();
+            check(L, 'the compact close does not carry over to 1920', s.game && s.side, s);
+            const errs = await errorsOf(page, log);
+            check(L, 'no errors in the panel pass', !errs.page.length && !errs.console.length && !errs.failed.length, errs);
+            await ctx.close();
+        }
+
+        // ---------- 0.6.0: the Clean stage (the artifact's duo stage) ----------
+        {
+            const L = 'clean stage';
+            const look = (page) => page.evaluate(() => {
+                const r = (sel) => { const e = document.querySelector(sel); if (!e) return null; const b = e.getBoundingClientRect(); return [Math.round(b.left), Math.round(b.top), Math.round(b.right), Math.round(b.bottom)]; };
+                const shown = (id) => { const e = document.getElementById(id); if (!e || e.hidden) return false; const cs = getComputedStyle(e); const b = e.getBoundingClientRect(); return cs.display !== 'none' && cs.visibility !== 'hidden' && +cs.opacity > 0 && b.width > 0 && b.right > 0 && b.left < innerWidth; };
+                const scene = document.getElementById('duet-scene');
+                return { w: innerWidth, h: innerHeight, cls: scene.className, clean: document.body.classList.contains('duet-clean'), scene: r('#duet-scene'), figL: r('#duet-fig-l'), figR: r('#duet-fig-r'), imgL: r('#duet-fig-l img'), imgR: r('#duet-fig-r img'), srcL: document.querySelector('#duet-fig-l img')?.getAttribute('src') || '', comp: r('#duet-composer'), log: r('#duet-log'), dimL: /is-dim/.test(document.getElementById('duet-fig-l').className), dimR: /is-dim/.test(document.getElementById('duet-fig-r').className), shownL: shown('duet-fig-l'), shownR: shown('duet-fig-r'), game: shown('duet-game'), side: shown('duet-side-panel'), youTab: shown('duet-you-tab'), themTab: shown('duet-them-tab'), themTabText: document.getElementById('duet-them-tab')?.textContent.trim() || '', scrollW: document.documentElement.scrollWidth };
+            });
+            for (const [width, height] of [[1366, 768], [1920, 1018], [2560, 1290], [5120, 1300]]) {
+                const { ctx, page, log } = await open(browser, m, { width, height, query: '?fresh=1&idle=1' });
+                await page.evaluate(() => { const s = window.mock.state.extensionSettings['st-duet-stage']; s.panelOpen = true; window.DuetStage.refresh(); }); await sleep(700);
+                const t = await look(page);
+                const mid = (t.scene[0] + t.scene[2]) / 2;
+                const centred = Math.abs((t.comp[0] + t.comp[2]) / 2 - mid) <= 2;
+                const hugs = t.figL[2] <= t.comp[0] + 170 && t.figR[0] >= t.comp[2] - 170 && t.figL[2] > t.comp[0] - 40 && t.figR[0] < t.comp[2] + 40;
+                const fills = t.imgL && t.imgR && (t.imgL[3] - t.imgL[1]) >= t.h * 0.4 && (t.imgR[3] - t.imgR[1]) >= t.h * 0.6;
+                check(L, `${width}x${height}: you on the left, her on the right, the chat centred between, nothing else`, /is-frames/.test(t.cls) && !/is-habit/.test(t.cls) && t.clean && t.shownL && t.shownR && /type=persona/.test(t.srcL) && centred && hugs && fills && !t.game && !t.side && t.figL[0] >= t.scene[0] - 1 && t.figR[2] <= t.scene[2] + 1 && t.scrollW <= t.w + 1 && t.dimL && !t.dimR, t);
+                await ctx.close();
+            }
+
+            const { ctx, page, log } = await open(browser, m, { width: 1920, height: 1018, query: '?fresh=1&idle=1' });
+            await sleep(400);
+            await page.keyboard.press('Escape'); await sleep(500);
+            const one = await look(page);
+            check(L, 'Esc tucks her into the right edge and leaves a tab with her name', !one.shownR && one.shownL && one.themTab && /Bambi/.test(one.themTabText) && !one.youTab, one);
+            await page.keyboard.press('Escape'); await sleep(500);
+            const two = await look(page);
+            check(L, 'a second Esc tucks you into the left edge', !two.shownL && two.youTab, two);
+            await page.click('#duet-them-tab'); await sleep(500);
+            await page.click('#duet-you-tab'); await sleep(500);
+            const back = await look(page);
+            check(L, 'the tabs bring you both back', back.shownL && back.shownR && !back.youTab && !back.themTab, back);
+            await page.hover('#duet-fig-r img').catch(() => {});
+            await page.click('#duet-fig-r .dv-fig-fold'); await sleep(500);
+            const x = await look(page);
+            check(L, 'her ✕ tucks her away', !x.shownR && x.themTab, x);
+            await page.goto(`http://127.0.0.1:${m.port}/?idle=1`, { waitUntil: 'load' }); await page.waitForFunction(() => !!document.getElementById('duet-vn')); await sleep(900);   /* no ?fresh: the saved settings load */
+            const kept = await look(page);
+            check(L, 'tucked stays tucked after a reload at this size', !kept.shownR && kept.themTab, kept);
+            await page.setViewportSize({ width: 2560, height: 1290 }); await sleep(600);
+            check(L, 'and she is still out on the 2560 screen', (await look(page)).shownR);
+            await page.setViewportSize({ width: 1920, height: 1018 }); await sleep(600);
+            await page.click('#duet-them-tab'); await sleep(500);
+            await page.focus('#duet-ta'); await page.keyboard.press('Escape'); await sleep(400);
+            check(L, 'Esc while typing leaves her where she is', (await look(page)).shownR);
+            await page.setViewportSize({ width: 1024, height: 700 }); await sleep(600);
+            await page.click('#duet-log', { position: { x: 30, y: 200 } }).catch(() => {}); await sleep(400);
+            const compact = await look(page);
+            check(L, 'a click in the chat on a compact window does not tuck anyone', compact.shownL && compact.shownR, compact);
+            await page.setViewportSize({ width: 1920, height: 1018 }); await sleep(400);
+            await page.evaluate(() => { const s = window.mock.state.extensionSettings['st-duet-stage']; s.features.clean = false; window.DuetStage.refresh(); window.DuetStage.onFeatures(); }); await sleep(700);
+            const off = await look(page);
+            check(L, 'Clean stage off brings back the talk layout and its game panel', /is-habit/.test(off.cls) && !/is-frames/.test(off.cls) && !off.clean && off.game, off);
+            const errs = await errorsOf(page, log);
+            check(L, 'no errors on the Clean stage', !errs.page.length && !errs.console.length && !errs.failed.length, errs);
+            await ctx.close();
+
+            const phone = await open(browser, m, { width: 390, height: 844, query: '?fresh=1&idle=1' });
+            await sleep(400);
+            const p = await look(phone.page);
+            check(L, 'phone 390x844: she stands behind the chat, the chat fits', /is-frames/.test(p.cls) && p.shownR && p.comp[0] >= 0 && p.comp[2] <= p.w + 1 && p.scrollW <= p.w + 1, p);
+            await phone.ctx.close();
+        }
+
         // ---------- sizes ----------
         for (const [name, width, height] of [['laptop', 1280, 680], ['small', 1024, 640], ['phone', 390, 844]]) {
-            const { ctx, page, log } = await open(browser, m, { width, height, query: '?fresh=1&idle=1&hearts=1' });
+            const { ctx, page, log } = await open(browser, m, { width, height, query: '?fresh=1&classic=1&idle=1&hearts=1' });
             await page.click('#duet-sug-btn').catch(() => {}); await sleep(600);
             const g = await page.evaluate(() => { const r = (id) => { const e = document.getElementById(id); if (!e) return null; const b = e.getBoundingClientRect(); return [Math.round(b.left), Math.round(b.top), Math.round(b.right), Math.round(b.bottom)]; }; return { w: innerWidth, h: innerHeight, comp: r('duet-composer'), under: r('duet-under'), send: r('duet-send'), scrollW: document.documentElement.scrollWidth }; });
             const fits = g.comp && g.comp[0] >= 0 && g.comp[2] <= g.w + 1 && g.send && g.send[2] <= g.w + 1 && g.send[3] <= g.h + 1 && g.scrollW <= g.w + 1;

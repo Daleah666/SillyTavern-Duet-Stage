@@ -11,6 +11,7 @@
  */
 
 import { FEATURES, featureOn, setFeature } from './features.js';
+import { isFolded, registerFoldable, setFolded } from './fold.js';
 import { fileNameOf, isImageName, labelFromName, originalImage } from './images.js';
 import { catalogCastNames, catalogEntries, characterForFile } from './library-transfer.js';
 import {
@@ -206,7 +207,9 @@ function currentPersonaKey(ctx) {
 function personaName(ctx) {
     const key = currentPersonaKey(ctx);
     const map = personaMap(ctx);
-    return (key && map[key]) || ctx.name1 || 'You';
+    /* SillyTavern says "[Unnamed Persona]" for a persona picture nobody named */
+    const real = (n) => (n && !/^\[.*\]$/.test(String(n).trim()) ? n : '');
+    return real(key && map[key]) || real(ctx.name1) || 'You';
 }
 
 function thumb(type, file) {
@@ -441,6 +444,30 @@ function mount() {
   <div id="duet-drawer" class="dv-drawer" hidden></div>
 </div>`;
     document.body.append(root);
+    /* the way back to a closed game panel lives on the page, above other extensions' side panels */
+    const gameTab = document.createElement('button');
+    gameTab.type = 'button';
+    gameTab.id = 'duet-game-tab';
+    gameTab.className = 'duet-panel-tab';
+    gameTab.hidden = true;
+    gameTab.setAttribute('aria-label', 'Open the game panel');
+    gameTab.setAttribute('data-duet-tip', 'Open the game panel');
+    gameTab.innerHTML = '<span>Game</span><i class="fa-solid fa-chevron-right" aria-hidden="true"></i>';
+    gameTab.addEventListener('click', () => foldGame(false));
+    document.body.append(gameTab);
+    for (const [which, , tabId, edge] of FRAME_TABS) {
+        const tab = document.createElement('button');
+        tab.type = 'button';
+        tab.id = tabId;
+        tab.className = `duet-panel-tab duet-frame-tab is-${edge}`;
+        tab.hidden = true;
+        const icon = edge === 'l' ? 'fa-chevron-right' : 'fa-chevron-left';
+        tab.innerHTML = edge === 'l'
+            ? `<span></span><i class="fa-solid ${icon}" aria-hidden="true"></i>`
+            : `<i class="fa-solid ${icon}" aria-hidden="true"></i><span></span>`;
+        tab.addEventListener('click', () => tuckFrame(which, false));
+        document.body.append(tab);
+    }
     root.addEventListener('click', onClick);
     root.addEventListener('change', onChange);
     root.addEventListener('input', onInput);
@@ -530,8 +557,9 @@ function renderChrome() {
     document.querySelectorAll('#duet-vn [data-feature]').forEach((el) => {
         el.hidden = !featureOn(prefs(), el.getAttribute('data-feature'));
     });
-    document.getElementById('duet-scene')?.classList.toggle('is-solo', featureOn(prefs(), 'solo') && !!prefs().solo);
+    document.getElementById('duet-scene')?.classList.toggle('is-solo', featureOn(prefs(), 'solo') && !!prefs().solo && !framesOn(ctx));
     document.getElementById('duet-scene')?.classList.toggle('is-habit', habitOn(ctx));
+    syncFrames();
     renderGame();
     document.body.classList.toggle('duet-calm', !!prefs().calm);
     document.querySelectorAll('#duet-nav [data-nav]').forEach((btn) => {
@@ -550,7 +578,44 @@ function renderChrome() {
 
 /* The talk layout: whenever a character is on stage, she takes the right panel and your game panel the left */
 function habitOn(ctx) {
-    return featureOn(prefs(), 'habit') && (!!activeChar(ctx) || !!ctx.groupId);
+    return featureOn(prefs(), 'habit') && !featureOn(prefs(), 'clean') && (!!activeChar(ctx) || !!ctx.groupId);
+}
+
+/* Clean stage: your persona framed on the left, her framed on the right, the chat between; the talk layout's panel waits */
+function framesOn(ctx) {
+    return featureOn(prefs(), 'clean') && (!!activeChar(ctx) || !!ctx.groupId);
+}
+
+const FRAME_TABS = [['you', 'duet-fig-l', 'duet-you-tab', 'l'], ['them', 'duet-fig-r', 'duet-them-tab', 'r']];
+
+function frameOpen(which) {
+    return framesOn(getCtx()) && !isFolded(prefs(), which);
+}
+
+/* a tucked frame slides into its edge and leaves a tab with the name on it */
+function syncFrames() {
+    const ctx = getCtx();
+    const on = framesOn(ctx);
+    const scene = document.getElementById('duet-scene');
+    scene?.classList.toggle('is-frames', on);
+    const names = { you: personaName(ctx), them: activeChar(ctx)?.name || ctx.name2 || 'Her' };
+    for (const [which, , tabId] of FRAME_TABS) {
+        const tucked = on && isFolded(prefs(), which);
+        scene?.classList.toggle(`is-${which}-tucked`, tucked);
+        const tab = document.getElementById(tabId);
+        if (!tab) continue;
+        tab.hidden = !tucked;
+        const label = tab.querySelector('span');
+        if (label && label.textContent !== names[which]) label.textContent = names[which];
+        tab.setAttribute('aria-label', `Bring ${names[which]} back`);
+        tab.setAttribute('data-duet-tip', `Bring ${names[which]} back`);
+    }
+}
+
+function tuckFrame(which, on) {
+    setFolded(prefs(), which, on);
+    savePrefs();
+    syncFrames();
 }
 
 function heartsOf(ch) {
@@ -611,7 +676,7 @@ function gameHTML(ctx, ch) {
     /* an empty mood or bond shows what the stage already knows (her line's tag, Card Creator's bars) greyed out */
     const field = (k, label, max, guess) => `<label class="dv-note-row"><span>${label}${by(k)}</span><input id="duet-note-${k}" data-note="${k}" type="text" maxlength="${max}" value="${esc(notes[k] || '')}" placeholder="${esc(guess || (auto ? 'AI fills this' : '–'))}" aria-label="${label}"></label>`;
     const fill = auto ? `<button type="button" class="dv-fill" data-act="scene-fill"${S.fillBusy ? ' disabled' : ''}>${S.fillBusy ? 'Reading the scene…' : '↻ Read the scene now'}</button>` : '';
-    return `<header class="dv-ih"><b>${esc(name)}</b><span id="duet-game-bond">${esc(bond)}</span></header>
+    return `<header class="dv-ih"><b>${esc(name)}</b><span id="duet-game-bond">${esc(bond)}</span><button type="button" class="dv-fold" data-act="fold-game" aria-label="Close the game panel" data-duet-tip="Close (Esc). The tab on the left edge brings it back.">✕</button></header>
 <div class="dv-ib">
 <section class="dv-isec"><h4 data-g="◐">Scene ${by('scene')}</h4><textarea id="duet-note-scene" data-note="scene" rows="3" maxlength="200" placeholder="${hint}" aria-label="Scene">${esc(notes.scene || '')}</textarea>${fill}</section>
 <section class="dv-isec"><h4 data-g="💗">Right now</h4><div class="dv-ibox">${field('mood', 'Mood', 40, mood)}${field('bond', 'Bond', 48, stage)}${bars}</div></section>
@@ -620,13 +685,36 @@ function gameHTML(ctx, ch) {
 </div>`;
 }
 
+function gameOpen() {
+    return habitOn(getCtx()) && !isFolded(prefs(), 'game');
+}
+
+/* folded at this screen size: the panel goes, the stage takes its width back, and the tab stays at the left edge */
+function syncGameFold() {
+    const host = document.getElementById('duet-game');
+    if (!host) return false;
+    const on = habitOn(getCtx());
+    const folded = on && isFolded(prefs(), 'game');
+    host.hidden = !on || folded;
+    document.getElementById('duet-scene')?.classList.toggle('is-game-folded', folded);
+    const tab = document.getElementById('duet-game-tab');
+    if (tab) tab.hidden = !folded;
+    return on && !folded;
+}
+
+function foldGame(on) {
+    const hadFocus = !!document.getElementById('duet-game')?.contains(document.activeElement);
+    setFolded(prefs(), 'game', on);
+    savePrefs();
+    renderGame();
+    if (on && hadFocus) document.getElementById('duet-game-tab')?.focus({ preventScroll: true });
+}
+
 function renderGame() {
     const host = document.getElementById('duet-game');
     if (!host) return;
     const ctx = getCtx();
-    const on = habitOn(ctx);
-    host.hidden = !on;
-    if (!on) return;
+    if (!syncGameFold()) return;
     if (host.contains(document.activeElement) && /^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName)) return;   /* never under her typing */
     const ch = activeChar(ctx);
     const html = gameHTML(ctx, ch);
@@ -980,7 +1068,8 @@ async function renderSprites() {
     const ctx = getCtx();
     const s = prefs();
     const right = activeChar(ctx);
-    const leftChar = s.leftAvatar ? charByAvatar(ctx, s.leftAvatar) : null;
+    /* Clean stage puts your persona on your side; a saved left-side character waits for the classic stage */
+    const leftChar = s.leftAvatar && !framesOn(ctx) ? charByAvatar(ctx, s.leftAvatar) : null;
     const chat = Array.isArray(ctx.chat) ? ctx.chat : [];
     const lastYou = [...chat].reverse().find((m) => m && m.is_user);
     const lastThem = [...chat].reverse().find((m) => m && !m.is_user && !m.is_system);
@@ -996,9 +1085,15 @@ async function renderSprites() {
         fallbackUrl: right ? thumb('avatar', right.avatar) : '',
         mood: moodIn(mesText(lastThem)),
         expression,
-        idle: habitOn(ctx),
+        idle: habitOn(ctx) || framesOn(ctx),
         turn: chat.filter((m) => m && !m.is_user && !m.is_system).length,
     }, token);
+    if (token !== spriteToken) return;
+    /* the one who did not say the last line steps back, as on the artifact's stage */
+    const last = [...chat].reverse().find((m) => m && !m.is_system);
+    const on = framesOn(ctx) && !!last;
+    document.getElementById('duet-fig-l')?.classList.toggle('is-dim', on && !last.is_user);
+    document.getElementById('duet-fig-r')?.classList.toggle('is-dim', on && !!last.is_user);
 }
 
 /* Her own looping clips: sprite files that pass IDLE_CLIP, plus the ST-folder clips Card Creator wired into companion_stage.media */
@@ -1101,6 +1196,16 @@ async function paintFigure(id, ch, opts, token) {
     const cap = document.createElement('figcaption');
     cap.textContent = name;
     fig.append(cap);
+    const which = id === 'duet-fig-l' ? 'you' : 'them';
+    const side = which === 'you' ? 'left' : 'right';
+    const fold = document.createElement('button');
+    fold.type = 'button';
+    fold.className = 'dv-fold dv-fig-fold';
+    fold.dataset.act = `tuck-${which}`;
+    fold.setAttribute('aria-label', `Tuck ${name || 'this side'} away`);
+    fold.setAttribute('data-duet-tip', `Tuck away (Esc). The tab on the ${side} edge brings ${which === 'you' ? 'you' : 'her'} back.`);
+    fold.textContent = '✕';
+    fig.append(fold);
 }
 
 /* ---------------- chat actions ---------------- */
@@ -2429,6 +2534,9 @@ const actions = {
     'show-column': () => showColumn(true),
     suggest: () => suggest(false),
     'scene-fill': () => fillScene(false),
+    'fold-game': () => foldGame(true),
+    'tuck-you': () => tuckFrame('you', true),
+    'tuck-them': () => tuckFrame('them', true),
     'use-sug': (el) => useSug(el.dataset.i),
     calm: () => {
         prefs().calm = !prefs().calm;
@@ -2710,6 +2818,26 @@ export function bootVn(api) {
     migrateLook();
     registerMenu();
     bindEvents();
+    registerFoldable({
+        which: 'game',
+        el: () => document.getElementById('duet-game'),
+        tab: () => document.getElementById('duet-game-tab'),
+        isOpen: () => !!document.getElementById('duet-vn') && !document.getElementById('duet-vn').hidden && gameOpen(),
+        fold: () => foldGame(true),
+    });
+    const stageShown = () => !!document.getElementById('duet-vn') && !document.getElementById('duet-vn').hidden;
+    /* her frame first, so a bare Esc tucks her before you */
+    for (const [which, figId, tabId] of [...FRAME_TABS].reverse()) {
+        registerFoldable({
+            which,
+            el: () => document.getElementById(figId),
+            tab: () => document.getElementById(tabId),
+            isOpen: () => stageShown() && frameOpen(which),
+            fold: () => tuckFrame(which, true),
+            outside: false,
+        });
+    }
+    window.addEventListener('resize', () => { syncGameFold(); syncFrames(); });
     applyMemory();
     renderChrome();
     renderLog();
