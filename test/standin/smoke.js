@@ -87,7 +87,7 @@ const vis = (page, sel) => page.evaluate((s) => { const e = document.querySelect
             // 0.3.0 features are still wired in
             await page.click('#duet-under [data-nav="settings"]'); await sleep(400);
             const toggles = await page.evaluate(() => [...document.querySelectorAll('#duet-drawer [data-feature-toggle]')].map((x) => x.getAttribute('data-feature-toggle') + (x.checked ? '+' : '-')));
-            check(L, 'Settings lists 15 switches, all on, with the two new ones', toggles.length === 15 && toggles.every((t) => t.endsWith('+')) && toggles.includes('suggest+') && toggles.includes('link+'), toggles);
+            check(L, 'Settings lists 16 switches, all on, with suggestions, the link and the talk layout', toggles.length === 16 && toggles.every((t) => t.endsWith('+')) && toggles.includes('suggest+') && toggles.includes('link+') && toggles.includes('habit+'), toggles);
             await page.screenshot({ path: path.join(out, `${L}-settings.png`) });
 
             await page.click('#duet-drawer [data-feature-toggle="suggest"]'); await sleep(400);
@@ -229,14 +229,73 @@ const vis = (page, sel) => page.evaluate((s) => { const e = document.querySelect
             await ctx.close();
         }
 
+        // ---------- the talk layout (0.4.0): her on the right panel with her idle clips, your game panel on the left ----------
+        {
+            const { ctx, page, log } = await open(browser, m, { query: '?fresh=1&idle=1&hearts=1' });
+            const box = (sel) => page.evaluate((s) => { const e = document.querySelector(s); if (!e) return null; const b = e.getBoundingClientRect(); return { l: Math.round(b.left), t: Math.round(b.top), r: Math.round(b.right), b: Math.round(b.bottom) }; }, sel);
+            const g = { game: await box('#duet-game'), her: await box('#duet-her'), fig: await box('#duet-fig-r'), log: await box('#duet-log'), comp: await box('#duet-composer') };
+            const st = await page.evaluate(() => ({ cls: document.getElementById('duet-scene').className, figL: getComputedStyle(document.getElementById('duet-fig-l')).display, fig: document.getElementById('duet-fig-r').className, src: document.querySelector('#duet-fig-r img')?.getAttribute('src') || '' }));
+            check(m.label, 'talk layout is on by default with a character on stage', /is-habit/.test(st.cls) && (await vis(page, '#duet-game')) && (await vis(page, '#duet-her')) && st.figL === 'none', st);
+            check(m.label, 'game panel on the left; her, the lines and the chat box inside the right panel', g.game.r <= g.her.l && g.her.l <= g.log.l && g.her.l <= g.comp.l && g.comp.r <= g.fig.r && g.fig.r <= g.her.r && g.fig.l > g.game.r, g);
+            check(m.label, 'her [flirty] line plays her own flirty idle clip', /is-idle/.test(st.fig) && /\/characters\/bambi\/desire-flirty-cycle\.gif$/.test(st.src), st);
+            const game = await page.evaluate(() => ({ bars: [...document.querySelectorAll('#duet-game [data-bar]')].map((b) => b.dataset.bar + ':' + (b.querySelector('b')?.textContent || '')), mood: document.getElementById('duet-game-mood')?.textContent, head: document.querySelector('#duet-game .dv-ih')?.innerText }));
+            check(m.label, "game panel shows level, Card Creator's six Right now bars, her mood and stage", game.bars.join() === 'xp:,aff:64,trust:52,spark:71,comfort:48,jeal:12,energy:80' && game.mood === 'flirty' && /Bambi/.test(game.head) && /Level 1 · Close friends/i.test(game.head), game);
+            const duet = await page.evaluate(() => {
+                const r = (e) => { const b = e.getBoundingClientRect(); return { l: b.left, t: b.top, r: b.right, b: b.bottom, w: b.width, h: b.height }; };
+                const nav = r(document.getElementById('duet-nav')), scene = r(document.getElementById('duet-scene')), game = r(document.getElementById('duet-game'));
+                const her = r(document.getElementById('duet-her')), fig = r(document.getElementById('duet-fig-r')), log = r(document.getElementById('duet-log'));
+                const them = document.querySelector('#duet-log .dv-turn.them .bubble'), you = document.querySelector('#duet-log .dv-turn.you .bubble');
+                const plate = r(them.querySelector(':scope > b')), tb = r(them), yb = r(you);
+                const cs = getComputedStyle(them), meter = r(document.querySelector('#duet-game [data-bar="aff"] > i'));
+                return {
+                    flush: Math.abs(game.l - nav.r) < 2 && Math.abs(game.t - scene.t) < 2 && Math.abs(game.b - scene.b) < 2, gameW: Math.round(game.w), gameBg: getComputedStyle(document.getElementById('duet-game')).backgroundColor,
+                    figShare: +(fig.w / her.w).toFixed(2), figH: +(fig.h / scene.h).toFixed(2), figAtEdge: Math.abs(fig.r - her.r) < 2,
+                    logW: Math.round(log.w), logWant: Math.round(Math.min(720, her.w * 0.6)), logPad: Math.round(log.l - her.l), padWant: Math.round(Math.max(28, her.w * 0.04)),
+                    herRight: tb.r > yb.r && tb.l > yb.l, plateRight: Math.round(tb.r - plate.r), cornerTR: cs.borderTopRightRadius, cornerTL: getComputedStyle(you).borderTopLeftRadius,
+                    hairlines: document.querySelectorAll('#duet-game .dv-isec > h4').length, meterH: Math.round(meter.h),
+                };
+            });
+            check(m.label, 'talk layout follows the Duet panels: flat 300px panel flush to the sidebar, her 46% wide at the stage edge, a min(720px, 60%) chat column, her plate on the right', duet.flush && duet.gameW === 300 && duet.gameBg === 'rgb(18, 21, 28)' && Math.abs(duet.figShare - 0.46) < 0.02 && duet.figH >= 0.94 && duet.figAtEdge && Math.abs(duet.logW - duet.logWant) <= 2 && Math.abs(duet.logPad - duet.padWant) <= 2 && duet.herRight && duet.plateRight >= 12 && duet.plateRight <= 16 && duet.cornerTR === '6px' && duet.cornerTL === '6px' && duet.hairlines === 4 && duet.meterH === 8, duet);
+            await page.fill('#duet-quest', 'Get her to admit she missed me'); await page.press('#duet-quest', 'Tab'); await sleep(300);
+            const quest = await page.evaluate(() => ({ meta: window.mock.state.chatMetadata.duet_quest, saved: window.calls.some((c) => c[0] === 'saveMetadata') }));
+            check(m.label, 'the quest saves on this chat', quest.meta === 'Get her to admit she missed me' && quest.saved, quest);
+            await page.screenshot({ path: path.join(out, `${m.label}-talk.png`) });
+            await page.fill('#duet-ta', 'I missed you.'); await page.click('#duet-send'); await sleep(1100);
+            const after = await page.evaluate(() => ({ src: document.querySelector('#duet-fig-r img')?.getAttribute('src') || '', fig: document.getElementById('duet-fig-r').className, stats: document.querySelector('#duet-game .dv-istage')?.innerText.replace(/\s+/g, ' ') }));
+            check(m.label, 'her [happy] reply switches to her happy idle clip, and the stats count it', /joy-happy-breath\.gif$/.test(after.src) && /is-idle/.test(after.fig) && /Your lines 2 Her lines 2/i.test(after.stats), after);
+            await page.evaluate(async () => { const c = window.mock.state.chat; const last = c[c.length - 1]; last.mes = 'Mm. Go on.'; last.swipes = [last.mes]; await window.mock.eventSource.emit(window.mock.eventTypes.MESSAGE_UPDATED, c.length - 1); }); await sleep(600);
+            const calm = await page.evaluate(() => document.querySelector('#duet-fig-r img')?.getAttribute('src') || '');
+            check(m.label, 'a line with no mood plays one of her neutral idle clips, never the still', /\/characters\/bambi\/neutral-(chat-idle|hair-sway)\.gif$/.test(calm), calm);
+            await page.evaluate(() => window.mock.state.extensionSettings['st-duet-stage'].features.sprites = false); await page.evaluate(() => window.DuetStage.onFeatures()); await sleep(600);
+            const noSprites = await page.evaluate(() => ({ src: document.querySelector('#duet-fig-r img')?.getAttribute('src') || '', fig: document.getElementById('duet-fig-r').className }));
+            check(m.label, 'Stage sprites off still means her avatar only, no clips', !/is-idle/.test(noSprites.fig) && /thumbnail/.test(noSprites.src), noSprites);
+            await page.evaluate(() => window.mock.state.extensionSettings['st-duet-stage'].features.sprites = true); await page.evaluate(() => window.DuetStage.onFeatures()); await sleep(400);
+            await page.click('#duet-under [data-nav="settings"]'); await sleep(300);
+            await page.click('#duet-drawer [data-feature-toggle="habit"]'); await sleep(500);
+            const off = await page.evaluate(() => ({ cls: document.getElementById('duet-scene').className, game: document.getElementById('duet-game').hidden, her: getComputedStyle(document.getElementById('duet-her')).display }));
+            check(m.label, 'Talk layout off goes back to the 0.3 stage', !/is-habit/.test(off.cls) && off.game && off.her === 'none', off);
+            const errs = await errorsOf(page, log);
+            check(m.label, 'no errors in the talk layout pass', !errs.page.length && !errs.console.length && !errs.failed.length, errs);
+            await ctx.close();
+            const none = await open(browser, m, { query: '?fresh=1&nochar=1' });
+            const n = await none.page.evaluate(() => ({ cls: document.getElementById('duet-scene').className, game: document.getElementById('duet-game').hidden }));
+            check(m.label, 'with nobody on stage the talk layout stays out of the way', !/is-habit/.test(n.cls) && n.game, n);
+            await none.ctx.close();
+        }
+
         // ---------- sizes ----------
         for (const [name, width, height] of [['laptop', 1280, 680], ['small', 1024, 640], ['phone', 390, 844]]) {
-            const { ctx, page, log } = await open(browser, m, { width, height, query: '?fresh=1' });
+            const { ctx, page, log } = await open(browser, m, { width, height, query: '?fresh=1&idle=1&hearts=1' });
             await page.click('#duet-sug-btn').catch(() => {}); await sleep(600);
             const g = await page.evaluate(() => { const r = (id) => { const e = document.getElementById(id); if (!e) return null; const b = e.getBoundingClientRect(); return [Math.round(b.left), Math.round(b.top), Math.round(b.right), Math.round(b.bottom)]; }; return { w: innerWidth, h: innerHeight, comp: r('duet-composer'), under: r('duet-under'), send: r('duet-send'), scrollW: document.documentElement.scrollWidth }; });
             const fits = g.comp && g.comp[0] >= 0 && g.comp[2] <= g.w + 1 && g.send && g.send[2] <= g.w + 1 && g.send[3] <= g.h + 1 && g.scrollW <= g.w + 1;
             const errs = await errorsOf(page, log);
             check(m.label, `${name} ${width}x${height}: chat box and Send fit on screen`, fits && !errs.page.length && !errs.console.length, { g, errs });
+            const t = await page.evaluate(() => { const r = (id) => { const e = document.getElementById(id); const b = e.getBoundingClientRect(); return [Math.round(b.left), Math.round(b.top), Math.round(b.right), Math.round(b.bottom)]; }; return { habit: /is-habit/.test(document.getElementById('duet-scene').className), game: r('duet-game'), her: r('duet-her'), comp: r('duet-composer'), log: r('duet-log'), fig: r('duet-fig-r'), idle: /is-idle/.test(document.getElementById('duet-fig-r').className), w: innerWidth, h: innerHeight }; });
+            const apart = (a, b) => a[2] <= b[0] || b[2] <= a[0] || a[3] <= b[1] || b[3] <= a[1];
+            const onScreen = (a) => a[0] >= 0 && a[1] >= 0 && a[2] <= t.w + 1 && a[3] <= t.h + 1;
+            const sideBySide = name === 'phone' ? t.game[3] <= t.her[1] : t.game[2] <= t.her[0];
+            check(m.label, `${name} ${width}x${height}: talk layout keeps the game panel ${name === 'phone' ? 'above' : 'left of'} her panel, clear of the chat box and lines`, t.habit && t.idle && sideBySide && apart(t.game, t.comp) && apart(t.game, t.log) && [t.game, t.her, t.comp].every(onScreen) && t.fig[2] <= t.her[2] + 1, t);
             await page.screenshot({ path: path.join(out, `${m.label}-${name}.png`) });
             await ctx.close();
         }
