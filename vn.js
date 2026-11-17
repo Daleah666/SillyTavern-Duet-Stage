@@ -895,6 +895,25 @@ function idleClips(ch, pack) {
     return out;
 }
 
+/* the mood a clip's file name carries: "desire-flirty-cycle.gif" is flirty, "joy-wave-idle.gif" is happy, "neutral-chat-idle.gif" neutral */
+function moodOfClip(path) {
+    const words = fileStem(path).split(/[-_ .]+/);
+    for (const w of words) {
+        if (MOODS.includes(w)) return w;
+        if (MOOD_ALIAS[w]) return MOOD_ALIAS[w];
+    }
+    return '';
+}
+
+/* her clip for this mood, else her neutral clips, else any of her clips; the line count steps through a pool */
+function pickIdleClip(clips, mood, turn) {
+    if (!clips.length) return '';
+    const byMood = mood ? clips.filter((c) => moodOfClip(c) === mood) : [];
+    const calm = clips.filter((c) => !moodOfClip(c) || moodOfClip(c) === 'neutral');
+    const pool = byMood.length ? byMood : (calm.length ? calm : clips);
+    return pool[(Number(turn) || 0) % pool.length];
+}
+
 async function paintFigure(id, ch, opts, token) {
     const fig = document.getElementById(id);
     if (!fig || token !== spriteToken) return;
@@ -916,17 +935,20 @@ async function paintFigure(id, ch, opts, token) {
             url = bestSprite(pack.list, label);
             sprite = !!url;
         }
+        const clip = !url && opts.idle ? pickIdleClip(idleClips(ch, pack), opts.mood, opts.turn) : '';
+        if (clip && (opts.mood ? moodOfClip(clip) === opts.mood : true)) {
+            url = clip;
+            sprite = true;
+            idle = true;
+        }
         if (!url && opts.mood) {
             url = bestSprite(pack.list, opts.mood);
             sprite = !!url;
         }
-        if (!url && opts.idle) {
-            const clips = idleClips(ch, pack);
-            if (clips.length) {
-                url = clips[(Number(opts.turn) || 0) % clips.length];
-                sprite = true;
-                idle = true;
-            }
+        if (!url && clip) {
+            url = clip;
+            sprite = true;
+            idle = true;
         }
         if (!url) {
             for (const label of NEUTRAL) {

@@ -237,7 +237,7 @@ const vis = (page, sel) => page.evaluate((s) => { const e = document.querySelect
             const st = await page.evaluate(() => ({ cls: document.getElementById('duet-scene').className, figL: getComputedStyle(document.getElementById('duet-fig-l')).display, fig: document.getElementById('duet-fig-r').className, src: document.querySelector('#duet-fig-r img')?.getAttribute('src') || '' }));
             check(m.label, 'talk layout is on by default with a character on stage', /is-habit/.test(st.cls) && (await vis(page, '#duet-game')) && (await vis(page, '#duet-her')) && st.figL === 'none', st);
             check(m.label, 'game panel on the left; her, the lines and the chat box inside the right panel', g.game.r <= g.her.l && g.her.l <= g.log.l && g.her.l <= g.comp.l && g.comp.r <= g.fig.r && g.fig.r <= g.her.r && g.fig.l > g.game.r, g);
-            check(m.label, 'her figure plays an idle clip from her own sprites when her line has no matching sprite', /is-idle/.test(st.fig) && /\/characters\/bambi\/idle(-sway)?\.gif$/.test(st.src), st);
+            check(m.label, 'her [flirty] line plays her own flirty idle clip', /is-idle/.test(st.fig) && /\/characters\/bambi\/desire-flirty-cycle\.gif$/.test(st.src), st);
             const game = await page.evaluate(() => ({ bars: [...document.querySelectorAll('#duet-game [data-bar]')].map((b) => b.dataset.bar + ':' + (b.querySelector('b')?.textContent || '')), mood: document.getElementById('duet-game-mood')?.textContent, head: document.querySelector('#duet-game .dv-gh')?.innerText }));
             check(m.label, "game panel shows level, Card Creator's six Right now bars, her mood and stage", game.bars.join() === 'xp:,aff:64,trust:52,spark:71,comfort:48,jeal:12,energy:80' && game.mood === 'flirty' && /Bambi/.test(game.head) && /Level 1 · Close friends/i.test(game.head), game);
             await page.fill('#duet-quest', 'Get her to admit she missed me'); await page.press('#duet-quest', 'Tab'); await sleep(300);
@@ -246,7 +246,14 @@ const vis = (page, sel) => page.evaluate((s) => { const e = document.querySelect
             await page.screenshot({ path: path.join(out, `${m.label}-talk.png`) });
             await page.fill('#duet-ta', 'I missed you.'); await page.click('#duet-send'); await sleep(1100);
             const after = await page.evaluate(() => ({ src: document.querySelector('#duet-fig-r img')?.getAttribute('src') || '', fig: document.getElementById('duet-fig-r').className, stats: document.querySelector('#duet-game .dv-stats')?.innerText.replace(/\s+/g, ' ') }));
-            check(m.label, 'her [happy] reply shows her happy sprite over the idle clip, and the stats count it', /happy\.png$/.test(after.src) && !/is-idle/.test(after.fig) && /Your lines 2 Her lines 2/i.test(after.stats), after);
+            check(m.label, 'her [happy] reply switches to her happy idle clip, and the stats count it', /joy-happy-breath\.gif$/.test(after.src) && /is-idle/.test(after.fig) && /Your lines 2 Her lines 2/i.test(after.stats), after);
+            await page.evaluate(async () => { const c = window.mock.state.chat; const last = c[c.length - 1]; last.mes = 'Mm. Go on.'; last.swipes = [last.mes]; await window.mock.eventSource.emit(window.mock.eventTypes.MESSAGE_UPDATED, c.length - 1); }); await sleep(600);
+            const calm = await page.evaluate(() => document.querySelector('#duet-fig-r img')?.getAttribute('src') || '');
+            check(m.label, 'a line with no mood plays one of her neutral idle clips, never the still', /\/characters\/bambi\/neutral-(chat-idle|hair-sway)\.gif$/.test(calm), calm);
+            await page.evaluate(() => window.mock.state.extensionSettings['st-duet-stage'].features.sprites = false); await page.evaluate(() => window.DuetStage.onFeatures()); await sleep(600);
+            const noSprites = await page.evaluate(() => ({ src: document.querySelector('#duet-fig-r img')?.getAttribute('src') || '', fig: document.getElementById('duet-fig-r').className }));
+            check(m.label, 'Stage sprites off still means her avatar only, no clips', !/is-idle/.test(noSprites.fig) && /thumbnail/.test(noSprites.src), noSprites);
+            await page.evaluate(() => window.mock.state.extensionSettings['st-duet-stage'].features.sprites = true); await page.evaluate(() => window.DuetStage.onFeatures()); await sleep(400);
             await page.click('#duet-under [data-nav="settings"]'); await sleep(300);
             await page.click('#duet-drawer [data-feature-toggle="habit"]'); await sleep(500);
             const off = await page.evaluate(() => ({ cls: document.getElementById('duet-scene').className, game: document.getElementById('duet-game').hidden, her: getComputedStyle(document.getElementById('duet-her')).display }));
