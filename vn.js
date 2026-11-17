@@ -42,7 +42,8 @@ const IDLE_CLIP = /\.gif$|(?:^|[-_ ])(idle|breath|cycle|bounce|sway|flourish|wav
 /* Card Creator's 💗 Right now bars, read from extensionSettings['st-card-creator'].hearts; never written here */
 const HEART_BARS = [['aff', '💗 Affection', '#ff7cbf'], ['trust', '🤝 Trust', '#7dd3fc'], ['spark', '✨ Spark', '#c084fc'], ['comfort', '☁ Comfort', '#86efac'], ['jeal', '😾 Jealousy', '#fbbf24'], ['energy', '⚡ Energy', '#fde047']];
 const HEART_STAGES = [[0, 'Strangers'], [20, 'Friendly'], [40, 'Close friends'], [60, 'Crushing'], [78, 'Sweethearts'], [92, 'Devoted']];
-const LINES_PER_LEVEL = 20;
+/* the scene notes on the game panel: what the AI may fill, and how long each may be */
+const SCENE_FIELDS = [['scene', 200], ['mood', 40], ['quest', 160], ['bond', 48]];
 
 const hooks = {
     setDock: () => {},
@@ -72,6 +73,8 @@ const S = {
     sugBusy: false,
     thinkFor: null,
     gameSig: '',
+    fillBusy: false,
+    fillDone: null,
 };
 
 let recognition = null;
@@ -560,33 +563,59 @@ function pct(v) {
     return Math.max(0, Math.min(100, Math.round(Number(v) || 0)));
 }
 
+/* The scene notes live on the chat: { scene, mood, quest, bond, mine: [fields you typed], ai: [fields the AI filled] }.
+   A field you typed stays yours until you empty it. The 0.4.0 quest box carries over as yours. */
+function sceneNotes(ctx) {
+    const meta = ctx.chatMetadata;
+    if (!meta) return { mine: [], ai: [] };
+    let n = meta.duet_scene;
+    if (!n || typeof n !== 'object' || Array.isArray(n)) {
+        n = { mine: [], ai: [] };
+        const old = String(meta.duet_quest || '').trim();
+        if (old) { n.quest = old; n.mine.push('quest'); }
+        meta.duet_scene = n;
+    }
+    if (!Array.isArray(n.mine)) n.mine = [];
+    if (!Array.isArray(n.ai)) n.ai = [];
+    return n;
+}
+
+function sceneFillOn(ctx) {
+    return habitOn(ctx) && featureOn(prefs(), 'scenefill');
+}
+
 function gameHTML(ctx, ch) {
     const chat = Array.isArray(ctx.chat) ? ctx.chat : [];
     const said = chat.filter((m) => m && !m.is_system);
     const mine = said.filter((m) => m.is_user).length;
     const hers = said.length - mine;
     const tokens = chat.reduce((n, m) => n + (Number(m?.extra?.token_count) || 0), 0);
-    const level = 1 + Math.floor(said.length / LINES_PER_LEVEL);
-    const into = said.length % LINES_PER_LEVEL;
+    const notes = sceneNotes(ctx);
     const h = heartsOf(ch);
     const lastThem = [...chat].reverse().find((m) => m && !m.is_user && !m.is_system);
-    const mood = String(h?.emo || moodIn(mesText(lastThem)) || expressionNow().label || 'neutral');
+    const mood = String(notes.mood || h?.emo || moodIn(mesText(lastThem)) || expressionNow().label || '');
     let stage = '';
     if (h) {
         const v = (pct(h.aff) + pct(h.trust) + pct(h.spark) + pct(h.comfort)) / 4;
         HEART_STAGES.forEach(([n, label]) => { if (v >= n) stage = label; });
     }
+    const bond = String(notes.bond || stage);
     const name = ch?.name || ctx.name2 || 'Her';
     const meter = (k, label, value, color, extra = '') => `<div class="dv-meter" data-bar="${k}" style="--m:${color}"><span>${label}</span>${extra}<i><s style="width:${value}%"></s></i></div>`;
     const bars = h
         ? HEART_BARS.map(([k, label, c]) => meter(k, esc(label), pct(h[k]), c, `<b>${pct(h[k])}</b>`)).join('')
         : `<p class="dv-note">Card Creator's 💗 Right now fills these six bars. Open it once for ${esc(name)} and they show up here.</p>`;
-    const quest = String(ctx.chatMetadata?.duet_quest || '');
-    return `<header class="dv-ih"><b>${esc(name)}</b><span>Level ${level}${stage ? ` · ${esc(stage)}` : ''}</span></header>
+    const by = (k) => notes.mine.includes(k) ? '<em class="dv-by" data-by="you">yours</em>' : notes.ai.includes(k) && notes[k] ? '<em class="dv-by" data-by="ai">AI</em>' : '';
+    const auto = sceneFillOn(ctx);
+    const hint = auto ? 'The AI fills this after her next reply. Type to set it yourself.' : 'Type to set it yourself.';
+    /* an empty mood or bond shows what the stage already knows (her line's tag, Card Creator's bars) greyed out */
+    const field = (k, label, max, guess) => `<label class="dv-note-row"><span>${label}${by(k)}</span><input id="duet-note-${k}" data-note="${k}" type="text" maxlength="${max}" value="${esc(notes[k] || '')}" placeholder="${esc(guess || (auto ? 'AI fills this' : '–'))}" aria-label="${label}"></label>`;
+    const fill = auto ? `<button type="button" class="dv-fill" data-act="scene-fill"${S.fillBusy ? ' disabled' : ''}>${S.fillBusy ? 'Reading the scene…' : '↻ Read the scene now'}</button>` : '';
+    return `<header class="dv-ih"><b>${esc(name)}</b><span id="duet-game-bond">${esc(bond)}</span></header>
 <div class="dv-ib">
-<section class="dv-isec"><h4 data-g="★">Level <span class="n">${level}</span></h4><div class="dv-ibox">${meter('xp', `${into} / ${LINES_PER_LEVEL} lines to level ${level + 1}`, Math.round((into / LINES_PER_LEVEL) * 100), '')}</div></section>
-<section class="dv-isec"><h4 data-g="💗">Right now</h4><div class="dv-ibox"><div class="dv-mood">Mood <b id="duet-game-mood">${esc(mood)}</b></div>${bars}</div></section>
-<section class="dv-isec"><h4 data-g="⚑">Quest</h4><input id="duet-quest" type="text" maxlength="160" value="${esc(quest)}" placeholder="No quest yet. Write one; it stays with this chat." aria-label="Quest for this chat"></section>
+<section class="dv-isec"><h4 data-g="◐">Scene ${by('scene')}</h4><textarea id="duet-note-scene" data-note="scene" rows="3" maxlength="200" placeholder="${hint}" aria-label="Scene">${esc(notes.scene || '')}</textarea>${fill}</section>
+<section class="dv-isec"><h4 data-g="💗">Right now</h4><div class="dv-ibox">${field('mood', 'Mood', 40, mood)}${field('bond', 'Bond', 48, stage)}${bars}</div></section>
+<section class="dv-isec"><h4 data-g="⚑">Quest ${by('quest')}</h4><input id="duet-note-quest" data-note="quest" type="text" maxlength="160" value="${esc(notes.quest || '')}" placeholder="${auto ? 'No quest yet. The AI picks one up from the chat, or write one.' : 'No quest yet. Write one; it stays with this chat.'}" aria-label="Quest for this chat"></section>
 <section class="dv-isec"><h4 data-g="#">Stats</h4><dl class="dv-istage"><dt>Your lines</dt><dd>${mine}</dd><dt>Her lines</dt><dd>${hers}</dd><dt>Tokens</dt><dd>${tokens ? `≈${tokens}` : '–'}</dd></dl></section>
 </div>`;
 }
@@ -598,7 +627,7 @@ function renderGame() {
     const on = habitOn(ctx);
     host.hidden = !on;
     if (!on) return;
-    if (host.contains(document.activeElement)) return;
+    if (host.contains(document.activeElement) && /^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName)) return;   /* never under her typing */
     const ch = activeChar(ctx);
     const html = gameHTML(ctx, ch);
     if (html === S.gameSig) return;
@@ -606,12 +635,104 @@ function renderGame() {
     host.innerHTML = html;
 }
 
-function saveQuest(value) {
+function saveNote(key, value) {
     const ctx = getCtx();
-    if (!ctx.chatMetadata) return;
-    ctx.chatMetadata.duet_quest = String(value || '').trim();
+    if (!ctx.chatMetadata || !SCENE_FIELDS.some(([k]) => k === key)) return;
+    const n = sceneNotes(ctx);
+    const text = String(value || '').trim();
+    n[key] = text;
+    n.ai = n.ai.filter((k) => k !== key);
+    n.mine = n.mine.filter((k) => k !== key);
+    if (text) n.mine.push(key);
+    if (key === 'quest') delete ctx.chatMetadata.duet_quest;
     ctx.saveMetadata?.();
     S.gameSig = '';
+    renderGame();
+}
+
+/* "Scene: …" lines from the model. Markdown, quotes and "none" are dropped; a field it leaves out keeps its old value. */
+function parseNotes(raw) {
+    const out = {};
+    for (const line of afterThinking(raw).split(/\n+/)) {
+        const m = line.match(/^[\s*_#>-]*(scene|mood|quest|bond)[\s*_]*[:：]\s*(.+)$/i);
+        if (!m) continue;
+        const key = m[1].toLowerCase();
+        const max = SCENE_FIELDS.find(([k]) => k === key)[1];
+        const value = m[2].replace(/[*_]+/g, '').replace(/^["“'`]+|["”'`]+$/g, '').trim();
+        if (!value || /^(none|n\/a|unknown|-+)\.?$/i.test(value) || key in out) continue;
+        out[key] = value.length > max ? `${value.slice(0, max - 1).trimEnd()}…` : value;
+    }
+    return out;
+}
+
+/* One quiet ask to whatever SillyTavern is connected to. It reads the chat SillyTavern already sends and
+   fills the fields you have not typed in yourself. auto: after her reply, so it stays silent when it cannot run. */
+function fillScene(auto) {
+    if (S.fillDone) return S.fillDone;
+    S.fillDone = readScene(auto).finally(() => { S.fillDone = null; });
+    return S.fillDone;
+}
+
+async function readScene(auto) {
+    const ctx = getCtx();
+    if (!sceneFillOn(ctx)) return;
+    const chat = Array.isArray(ctx.chat) ? ctx.chat : [];
+    if (!chat.some((m) => m && !m.is_system)) {
+        if (!auto) toast('info', 'Nothing has been said yet, so there is no scene to read.');
+        return;
+    }
+    if (typeof ctx.generateQuietPrompt !== 'function') {
+        if (!auto) toast('warning', 'This SillyTavern build has no quiet prompt, so the AI cannot fill the panel.');
+        return;
+    }
+    if (!connected(ctx)) {
+        if (!auto) toast('info', 'Connect an API in SillyTavern first. The scene notes use that connection.');
+        return;
+    }
+    const notes = sceneNotes(ctx);
+    const open = SCENE_FIELDS.map(([k]) => k).filter((k) => !notes.mine.includes(k));
+    if (!open.length) {
+        if (!auto) toast('info', 'You set every field yourself. Empty one and the AI fills it.');
+        return;
+    }
+    const you = personaName(ctx);
+    const her = activeChar(ctx)?.name || ctx.name2 || 'her';
+    const known = SCENE_FIELDS.map(([k]) => notes[k] ? `${k[0].toUpperCase()}${k.slice(1)}: ${notes[k]}` : '').filter(Boolean).join('\n');
+    const prompt = `Pause the roleplay. Do not continue the story. Write the stage notes for what is going on right now between ${her} and ${you}, from the conversation so far.${known ? `\nThe notes so far (keep what still holds, change what moved on):\n${known}` : ''}
+Answer with exactly these four lines and nothing else:
+Scene: where they are and what is happening, one sentence under 20 words
+Mood: ${her}'s mood right now, one or two words
+Quest: what ${you} is after in this scene, under 12 words
+Bond: where ${her} and ${you} stand with each other, two to four words`;
+    const chatId = ctx.chatId;
+    S.fillBusy = true;
+    S.gameSig = '';
+    renderGame();
+    try {
+        const got = parseNotes(await quietAnswer(ctx, prompt, 160));
+        const now = getCtx();
+        if (now.chatId !== chatId) return;   /* she switched chats while the model was reading */
+        const n = sceneNotes(now);
+        const filled = open.filter((k) => got[k]);
+        if (!filled.length) {
+            if (!auto) toast('warning', 'The AI answered, but not in the four lines the panel reads. Try again.');
+            return;
+        }
+        for (const k of filled) {
+            if (n.mine.includes(k)) continue;   /* typed while it was reading */
+            n[k] = got[k];
+            if (!n.ai.includes(k)) n.ai.push(k);
+        }
+        n.at = (Array.isArray(now.chat) ? now.chat : []).length;
+        now.saveMetadata?.();
+    } catch (e) {
+        console.warn('[st-duet-stage] scene notes', e);
+        if (!auto) toast('error', 'The scene notes could not reach the AI connection.');
+    } finally {
+        S.fillBusy = false;
+        S.gameSig = '';
+        renderGame();
+    }
 }
 
 function paintAv(node, url, label) {
@@ -748,6 +869,7 @@ function renderSug() {
 }
 
 async function suggest(auto) {
+    if (S.fillDone) await S.fillDone;   /* one quiet ask at a time */
     const ctx = getCtx();
     if (!featureOn(prefs(), 'suggest')) return;
     if (S.sugBusy || S.busy) return;
@@ -1400,7 +1522,8 @@ function experimentalHTML() {
 }
 
 function updatesHTML() {
-    return `<p class="dv-note"><b>0.4.0</b> — The talk layout, on whenever someone is on stage: she has the right panel with her idle clips and the conversation, and your game panel sits on the left (level, Card Creator's Right now bars, a quest for this chat, stats). Settings → Talk layout switches it off.</p>
+    return `<p class="dv-note"><b>0.5.0</b> — The game panel follows the chat. After each of her replies, one quiet ask to the AI SillyTavern is connected to fills in the scene, her mood, your quest and where you two stand. Type in any of them and it stays yours; empty it and the AI takes it back. ↻ Read the scene now asks straight away. The placeholder level is gone. Settings → Scene notes by AI switches the asking off.</p>
+<p class="dv-note"><b>0.4.0</b> — The talk layout, on whenever someone is on stage: she has the right panel with her idle clips and the conversation, and your game panel sits on the left (level, Card Creator's Right now bars, a quest for this chat, stats). Settings → Talk layout switches it off.</p>
 <p class="dv-note"><b>0.3.3</b> — ✨ suggestions and the inner voice now work on models that always think first (GLM): if the short ask comes back empty, it asks once more with room to think, then remembers for that connection.</p>
 <p class="dv-note"><b>0.3.2</b> — With a thinking model (Qwen 3, GLM), ✨ suggestions and the inner voice now use only the answer, never the model's scratch notes.</p>
 <p class="dv-note"><b>0.3.1</b> — The Duet Staging look: the same fonts, pink name plates, glass chat box, her big on the right with her name behind her, and the little bar under the box (ST chat, Calm, Settings). New: ✨ suggests three replies in the style you pick beside Reroll. The live link with Duet Staging through the Duet Stage Companion. Reply suggestions and the link each have their own switch under Settings. Everything from 0.3.0 is still here.</p>
@@ -2305,6 +2428,7 @@ const actions = {
     },
     'show-column': () => showColumn(true),
     suggest: () => suggest(false),
+    'scene-fill': () => fillScene(false),
     'use-sug': (el) => useSug(el.dataset.i),
     calm: () => {
         prefs().calm = !prefs().calm;
@@ -2370,8 +2494,8 @@ function onChange(ev) {
         prefs().solo = !!ev.target.checked;
         savePrefs();
         renderChrome();
-    } else if (id === 'duet-quest') {
-        saveQuest(ev.target.value);
+    } else if (ev.target?.dataset?.note && ev.target.closest('#duet-game')) {
+        saveNote(ev.target.dataset.note, ev.target.value);
     } else if (id === 'duet-set-column') {
         showColumn(!!ev.target.checked);
     } else if (id === 'duet-sug-type') {
@@ -2495,6 +2619,20 @@ function watchBusy() {
     }, 700);
 }
 
+/* After her reply: the scene notes first, then the suggestions, one quiet ask at a time */
+function afterHerReply() {
+    const ctx = getCtx();
+    const chat = Array.isArray(ctx.chat) ? ctx.chat : [];
+    const last = chat[chat.length - 1];
+    const hers = !!last && !last.is_user && !last.is_system;
+    const sugAuto = !S.sugBusy && prefs().sugAuto;
+    if (!hers && !sugAuto) return;
+    setTimeout(async () => {
+        if (hers) await fillScene(true).catch((e) => console.warn('[st-duet-stage] scene notes', e));
+        if (sugAuto) await suggest(true).catch((e) => console.warn('[st-duet-stage] suggest', e));
+    }, 900);
+}
+
 function onStageEvent(key, args) {
     if (key === 'GENERATION_STARTED') {
         const type = args[0];
@@ -2515,9 +2653,7 @@ function onStageEvent(key, args) {
         S.busy = false;
         S.quiet = false;
         scheduleRender();
-        if (key === 'GENERATION_ENDED' && !wasQuiet && !S.sugBusy && prefs().sugAuto) {
-            setTimeout(() => suggest(true).catch((e) => console.warn('[st-duet-stage] suggest', e)), 900);
-        }
+        if (key === 'GENERATION_ENDED' && !wasQuiet) afterHerReply();
         return;
     }
     if (key === 'CHAT_CHANGED' || key === 'CHAT_LOADED') {

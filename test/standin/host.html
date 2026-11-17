@@ -125,11 +125,22 @@
     },
     async generateQuietPrompt(arg) {
       const room = typeof arg === 'string' ? 0 : Number(arg.responseLength) || 0;
-      window.calls.push(['quiet', typeof arg === 'string' ? arg : arg.quietPrompt, room]);
+      const prompt = typeof arg === 'string' ? arg : arg.quietPrompt;
+      /* the game panel's scene notes are logged apart, so the suggestion counts below stay exact */
+      const scene = /stage notes/.test(prompt);
+      window.calls.push([scene ? 'quiet-scene' : 'quiet', prompt, room]);
       await eventSource.emit(eventTypes.GENERATION_STARTED, 'quiet');   /* a real SillyTavern announces quiet generations too */
       await new Promise((r) => setTimeout(r, 150));
       await eventSource.emit(eventTypes.GENERATION_ENDED, chat.length);
       if (q.get('quietfail')) throw new Error('no connection');
+      /* ?notes=junk: a model that ignores the four-line format */
+      if (scene && q.get('notes') === 'junk') return 'Sure! Bambi seems really happy right now and the two of them are getting along.';
+      if (scene) {
+        const last = [...chat].reverse().find((m) => !m.is_user);
+        return /\[happy\]/.test(last && last.mes || '')
+          ? '<think>\nWhat is going on here.\n</think>\n**Scene:** Bambi pulls Del down onto the couch, delighted\nMood: *happy*\nQuest: Hear the rest of Del\'s long day\nBond: "Sweethearts, still shy"'
+          : 'Scene: Curled up together on the couch after a long day\nMood: flirty\nQuest: none\nBond: Close and teasing';
+      }
       const three = 'Come here and find out.\nI could think of a few things, starting with you.\nTell me what bored-you wants first.';
       /* a thinking model whose scratch work reaches the extension, closed and cut off */
       /* a model that always thinks first (GLM): a short allowance is all thinking. 'glm' = SillyTavern stripped it, so nothing is left;

@@ -17,6 +17,7 @@ export const FEATURES = [
     { id: 'inner', label: 'Inner voice', blurb: 'Asides you write, or one quiet question to the connected model.' },
     { id: 'solo', label: 'Solo Stage', blurb: 'Hide your side of the stage.' },
     { id: 'habit', label: 'Talk layout', blurb: 'While you two talk: her on the right panel with her idle clips and the conversation, your game panel on the left.' },
+    { id: 'scenefill', label: 'Scene notes by AI', blurb: 'In the talk layout, one quiet ask to the AI SillyTavern is connected to after each of her replies fills the scene, mood, quest and bond. Fields you type stay yours.' },
     { id: 'drive', label: 'Drive sync', blurb: 'Save and load cast, cards, memory, sprites and subliminals on Google Drive.' },
     { id: 'mirror', label: 'Mirror', blurb: 'The mirror page.' },
     { id: 'suggest', label: 'Reply suggestions', blurb: 'The ✨ button and the three suggested replies. They use the AI connection SillyTavern already has.' },

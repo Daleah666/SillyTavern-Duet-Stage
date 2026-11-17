@@ -87,7 +87,7 @@ const vis = (page, sel) => page.evaluate((s) => { const e = document.querySelect
             // 0.3.0 features are still wired in
             await page.click('#duet-under [data-nav="settings"]'); await sleep(400);
             const toggles = await page.evaluate(() => [...document.querySelectorAll('#duet-drawer [data-feature-toggle]')].map((x) => x.getAttribute('data-feature-toggle') + (x.checked ? '+' : '-')));
-            check(L, 'Settings lists 16 switches, all on, with suggestions, the link and the talk layout', toggles.length === 16 && toggles.every((t) => t.endsWith('+')) && toggles.includes('suggest+') && toggles.includes('link+') && toggles.includes('habit+'), toggles);
+            check(L, 'Settings lists 17 switches, all on, with suggestions, the link, the talk layout and the scene notes', toggles.length === 17 && toggles.every((t) => t.endsWith('+')) && toggles.includes('suggest+') && toggles.includes('link+') && toggles.includes('habit+') && toggles.includes('scenefill+'), toggles);
             await page.screenshot({ path: path.join(out, `${L}-settings.png`) });
 
             await page.click('#duet-drawer [data-feature-toggle="suggest"]'); await sleep(400);
@@ -238,8 +238,8 @@ const vis = (page, sel) => page.evaluate((s) => { const e = document.querySelect
             check(m.label, 'talk layout is on by default with a character on stage', /is-habit/.test(st.cls) && (await vis(page, '#duet-game')) && (await vis(page, '#duet-her')) && st.figL === 'none', st);
             check(m.label, 'game panel on the left; her, the lines and the chat box inside the right panel', g.game.r <= g.her.l && g.her.l <= g.log.l && g.her.l <= g.comp.l && g.comp.r <= g.fig.r && g.fig.r <= g.her.r && g.fig.l > g.game.r, g);
             check(m.label, 'her [flirty] line plays her own flirty idle clip', /is-idle/.test(st.fig) && /\/characters\/bambi\/desire-flirty-cycle\.gif$/.test(st.src), st);
-            const game = await page.evaluate(() => ({ bars: [...document.querySelectorAll('#duet-game [data-bar]')].map((b) => b.dataset.bar + ':' + (b.querySelector('b')?.textContent || '')), mood: document.getElementById('duet-game-mood')?.textContent, head: document.querySelector('#duet-game .dv-ih')?.innerText }));
-            check(m.label, "game panel shows level, Card Creator's six Right now bars, her mood and stage", game.bars.join() === 'xp:,aff:64,trust:52,spark:71,comfort:48,jeal:12,energy:80' && game.mood === 'flirty' && /Bambi/.test(game.head) && /Level 1 · Close friends/i.test(game.head), game);
+            const game = await page.evaluate(() => ({ bars: [...document.querySelectorAll('#duet-game [data-bar]')].map((b) => b.dataset.bar + ':' + (b.querySelector('b')?.textContent || '')), mood: document.getElementById('duet-note-mood')?.placeholder, bond: document.getElementById('duet-note-bond')?.placeholder, head: document.querySelector('#duet-game .dv-ih')?.innerText, notes: [...document.querySelectorAll('#duet-game [data-note]')].map((x) => x.dataset.note + '=' + x.value), fill: !!document.querySelector('#duet-game [data-act="scene-fill"]'), level: /level/i.test(document.getElementById('duet-game').innerText) }));
+            check(m.label, "before the AI has read the scene: Card Creator's six bars, her mood from her line and the stage from the bars, empty notes, no placeholder level", game.bars.join() === 'aff:64,trust:52,spark:71,comfort:48,jeal:12,energy:80' && game.mood === 'flirty' && game.bond === 'Close friends' && /Bambi/.test(game.head) && /Close friends/i.test(game.head) && game.notes.join() === 'scene=,mood=,bond=,quest=' && game.fill && !game.level, game);
             const duet = await page.evaluate(() => {
                 const r = (e) => { const b = e.getBoundingClientRect(); return { l: b.left, t: b.top, r: b.right, b: b.bottom, w: b.width, h: b.height }; };
                 const nav = r(document.getElementById('duet-nav')), scene = r(document.getElementById('duet-scene')), game = r(document.getElementById('duet-game'));
@@ -256,13 +256,28 @@ const vis = (page, sel) => page.evaluate((s) => { const e = document.querySelect
                 };
             });
             check(m.label, 'talk layout follows the Duet panels: flat 300px panel flush to the sidebar, her 46% wide at the stage edge, a min(720px, 60%) chat column, her plate on the right', duet.flush && duet.gameW === 300 && duet.gameBg === 'rgb(18, 21, 28)' && Math.abs(duet.figShare - 0.46) < 0.02 && duet.figH >= 0.94 && duet.figAtEdge && Math.abs(duet.logW - duet.logWant) <= 2 && Math.abs(duet.logPad - duet.padWant) <= 2 && duet.herRight && duet.plateRight >= 12 && duet.plateRight <= 16 && duet.cornerTR === '6px' && duet.cornerTL === '6px' && duet.hairlines === 4 && duet.meterH === 8, duet);
-            await page.fill('#duet-quest', 'Get her to admit she missed me'); await page.press('#duet-quest', 'Tab'); await sleep(300);
-            const quest = await page.evaluate(() => ({ meta: window.mock.state.chatMetadata.duet_quest, saved: window.calls.some((c) => c[0] === 'saveMetadata') }));
-            check(m.label, 'the quest saves on this chat', quest.meta === 'Get her to admit she missed me' && quest.saved, quest);
+            await page.fill('#duet-note-quest', 'Get her to admit she missed me'); await page.press('#duet-note-quest', 'Tab'); await sleep(300);
+            const quest = await page.evaluate(() => ({ meta: window.mock.state.chatMetadata.duet_scene, saved: window.calls.some((c) => c[0] === 'saveMetadata'), by: document.querySelector('#duet-game .dv-isec:nth-of-type(3) .dv-by')?.textContent }));
+            check(m.label, 'a quest you type saves on this chat and is marked yours', quest.meta.quest === 'Get her to admit she missed me' && quest.meta.mine.join() === 'quest' && quest.saved && quest.by === 'yours', quest);
             await page.screenshot({ path: path.join(out, `${m.label}-talk.png`) });
             await page.fill('#duet-ta', 'I missed you.'); await page.click('#duet-send'); await sleep(1100);
             const after = await page.evaluate(() => ({ src: document.querySelector('#duet-fig-r img')?.getAttribute('src') || '', fig: document.getElementById('duet-fig-r').className, stats: document.querySelector('#duet-game .dv-istage')?.innerText.replace(/\s+/g, ' ') }));
             check(m.label, 'her [happy] reply switches to her happy idle clip, and the stats count it', /joy-happy-breath\.gif$/.test(after.src) && /is-idle/.test(after.fig) && /Your lines 2 Her lines 2/i.test(after.stats), after);
+
+            // 0.5.0: after her reply, one quiet ask to the connected AI fills the scene notes; what you typed stays yours
+            await page.waitForFunction(() => window.calls.some((c) => c[0] === 'quiet-scene'), null, { timeout: 4000 }).catch(() => {});
+            await sleep(500);
+            const notes = () => page.evaluate(() => ({ asks: window.calls.filter((c) => c[0] === 'quiet-scene').map((c) => c[1]), sug: window.calls.filter((c) => c[0] === 'quiet').length, f: Object.fromEntries([...document.querySelectorAll('#duet-game [data-note]')].map((x) => [x.dataset.note, x.value])), by: [...document.querySelectorAll('#duet-game .dv-by')].map((x) => x.textContent).join(), head: document.querySelector('#duet-game .dv-ih span')?.textContent, meta: window.mock.state.chatMetadata.duet_scene }));
+            const n1 = await notes();
+            check(m.label, 'after her reply the AI fills scene, mood and bond in one quiet ask, without markdown, quotes or its thinking', n1.asks.length === 1 && n1.sug === 0 && n1.f.scene === 'Bambi pulls Del down onto the couch, delighted' && n1.f.mood === 'happy' && n1.f.bond === 'Sweethearts, still shy' && n1.head === 'Sweethearts, still shy', n1);
+            check(m.label, 'the quest you typed stays yours: the AI is told it and does not replace it', n1.f.quest === 'Get her to admit she missed me' && /Quest: Get her to admit she missed me/.test(n1.asks[0]) && /Bambi and Del/.test(n1.asks[0]) && n1.meta.mine.join() === 'quest' && n1.meta.ai.join() === 'scene,mood,bond', { f: n1.f, meta: n1.meta });
+            await page.screenshot({ path: path.join(out, `${m.label}-scene-filled.png`) });
+            await page.fill('#duet-note-quest', ''); await page.press('#duet-note-quest', 'Tab'); await sleep(200);
+            await page.fill('#duet-note-mood', 'smitten'); await page.press('#duet-note-mood', 'Tab'); await sleep(200);
+            await page.click('#duet-game [data-act="scene-fill"]'); await sleep(900);
+            const n2 = await notes();
+            check(m.label, '↻ Read the scene now asks again: an emptied quest goes back to the AI, a mood you typed stays', n2.asks.length === 2 && n2.f.quest === "Hear the rest of Del's long day" && n2.f.mood === 'smitten' && n2.meta.mine.join() === 'mood' && /AI/.test(n2.by) && /yours/.test(n2.by), n2);
+            await page.screenshot({ path: path.join(out, `${m.label}-scene-yours.png`) });
             await page.evaluate(async () => { const c = window.mock.state.chat; const last = c[c.length - 1]; last.mes = 'Mm. Go on.'; last.swipes = [last.mes]; await window.mock.eventSource.emit(window.mock.eventTypes.MESSAGE_UPDATED, c.length - 1); }); await sleep(600);
             const calm = await page.evaluate(() => document.querySelector('#duet-fig-r img')?.getAttribute('src') || '');
             check(m.label, 'a line with no mood plays one of her neutral idle clips, never the still', /\/characters\/bambi\/neutral-(chat-idle|hair-sway)\.gif$/.test(calm), calm);
@@ -270,6 +285,13 @@ const vis = (page, sel) => page.evaluate((s) => { const e = document.querySelect
             const noSprites = await page.evaluate(() => ({ src: document.querySelector('#duet-fig-r img')?.getAttribute('src') || '', fig: document.getElementById('duet-fig-r').className }));
             check(m.label, 'Stage sprites off still means her avatar only, no clips', !/is-idle/.test(noSprites.fig) && /thumbnail/.test(noSprites.src), noSprites);
             await page.evaluate(() => window.mock.state.extensionSettings['st-duet-stage'].features.sprites = true); await page.evaluate(() => window.DuetStage.onFeatures()); await sleep(400);
+            await page.click('#duet-under [data-nav="settings"]'); await sleep(300);
+            await page.click('#duet-drawer [data-feature-toggle="scenefill"]'); await sleep(300);
+            await page.keyboard.press('Escape'); await sleep(200);
+            const asks = await page.evaluate(() => window.calls.filter((c) => c[0] === 'quiet-scene').length);
+            await page.fill('#duet-ta', 'Tell me more.'); await page.click('#duet-send'); await sleep(1800);
+            const offFill = await page.evaluate(() => ({ asks: window.calls.filter((c) => c[0] === 'quiet-scene').length, btn: !!document.querySelector('#duet-game [data-act="scene-fill"]'), mood: document.getElementById('duet-note-mood')?.value, edit: !document.getElementById('duet-note-scene')?.disabled }));
+            check(m.label, 'Scene notes by AI off: no ask after her reply and no ↻ button; the notes stay and you can still type', offFill.asks === asks && !offFill.btn && offFill.mood === 'smitten' && offFill.edit, { asks, offFill });
             await page.click('#duet-under [data-nav="settings"]'); await sleep(300);
             await page.click('#duet-drawer [data-feature-toggle="habit"]'); await sleep(500);
             const off = await page.evaluate(() => ({ cls: document.getElementById('duet-scene').className, game: document.getElementById('duet-game').hidden, her: getComputedStyle(document.getElementById('duet-her')).display }));
@@ -281,6 +303,14 @@ const vis = (page, sel) => page.evaluate((s) => { const e = document.querySelect
             const n = await none.page.evaluate(() => ({ cls: document.getElementById('duet-scene').className, game: document.getElementById('duet-game').hidden }));
             check(m.label, 'with nobody on stage the talk layout stays out of the way', !/is-habit/.test(n.cls) && n.game, n);
             await none.ctx.close();
+
+            // the scene notes with a model that answers off-format, and an old 0.4.0 quest
+            const junk = await open(browser, m, { query: '?fresh=1&notes=junk' });
+            await junk.page.evaluate(() => { const meta = window.mock.state.chatMetadata; delete meta.duet_scene; meta.duet_quest = 'Old quest from 0.4.0'; window.DuetStage.refresh();   /* a chat saved by 0.4.0 */ }); await sleep(400);
+            await junk.page.click('#duet-game [data-act="scene-fill"]'); await sleep(900);
+            const j = await junk.page.evaluate(() => ({ asks: window.calls.filter((c) => c[0] === 'quiet-scene').length, toast: window.calls.filter((c) => c[0] === 'toast').map((c) => c[2]), f: [...document.querySelectorAll('#duet-game [data-note]')].map((x) => x.dataset.note + '=' + x.value).join('|'), btn: document.querySelector('#duet-game [data-act="scene-fill"]')?.disabled, errs: window.pageErrors }));
+            check(m.label, 'an off-format answer fills nothing and says so; a 0.4.0 quest carries over as yours', j.asks === 1 && j.toast.some((t) => /not in the four lines/.test(t)) && j.f === 'scene=|mood=|bond=|quest=Old quest from 0.4.0' && j.btn === false && !j.errs.length, j);
+            await junk.ctx.close();
         }
 
         // ---------- sizes ----------
