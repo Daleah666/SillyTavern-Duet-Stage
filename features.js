@@ -16,6 +16,7 @@ export const FEATURES = [
     { id: 'subl', label: 'Subliminals', blurb: 'Short lines that drift across the stage.' },
     { id: 'inner', label: 'Inner voice', blurb: 'Asides you write, or one quiet question to the connected model.' },
     { id: 'solo', label: 'Solo Stage', blurb: 'Hide your side of the stage.' },
+    { id: 'clean', label: 'Clean stage', blurb: 'The Duet Staging artifact\'s stage: your persona on the left, her on the right, the chat between you. While it is on, the game panel, the side panel and other extensions\' side HUDs are hidden. Nothing is deleted; switch it off to get them back.' },
     { id: 'habit', label: 'Talk layout', blurb: 'While you two talk: her on the right panel with her idle clips and the conversation, your game panel on the left.' },
     { id: 'scenefill', label: 'Scene notes by AI', blurb: 'In the talk layout, one quiet ask to the AI SillyTavern is connected to after each of her replies fills the scene, mood, quest and bond. Fields you type stay yours.' },
     { id: 'drive', label: 'Drive sync', blurb: 'Save and load cast, cards, memory, sprites and subliminals on Google Drive.' },

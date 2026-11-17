@@ -18,8 +18,9 @@ import { bootVn } from './vn.js';
 import { FEATURES, ensureFeatures, featureOn, setFeature } from './features.js';
 import { completeSignIn, hydrateDrive, takeOauthReturn } from './drive.js';
 import { bootSync } from './sync.js';   // the live link with Duet Staging, through the Duet Stage Companion
+import { bindFoldKeys, ensureFold, isFolded, registerFoldable, setFolded } from './fold.js';
 const MODULE = 'st-duet-stage';
-const VERSION = '0.5.0';
+const VERSION = '0.6.0';
 const PANEL_ID = 'duet-side-panel';
 const NEUTRAL_LABELS = ['neutral', 'normal', 'base', 'default', 'idle', 'standing', 'stand'];
 const SPRITE_EVENTS = [
@@ -56,6 +57,7 @@ function settings() {
     if (typeof s.panelOpen !== 'boolean') s.panelOpen = DEFAULTS.panelOpen;
     if (typeof s.panelWidth !== 'number' || !Number.isFinite(s.panelWidth)) s.panelWidth = DEFAULTS.panelWidth;
     s.panelWidth = clamp(Math.round(s.panelWidth), 240, 720);
+    ensureFold(s);
     ensureFeatures(s);
     try { hydrateDrive(s); } catch (e) { console.warn(`[${MODULE}] drive settings`, e); }
     return s;
@@ -176,7 +178,7 @@ function mount() {
             h('b', { text: 'Duet' }),
             h('span', { class: 'duet-sp-spacer' }),
             iconButton('duet-sp-collapse', 'fa-chevron-up', 'Collapse the side panel'),
-            iconButton('duet-sp-close', 'fa-xmark', 'Hide side panel'),
+            iconButton('duet-sp-close', 'fa-xmark', 'Close the side panel (Esc). The tab on the right edge brings it back.'),
         );
         const rail = h('div', { id: 'duet-rail-body' });
         panel.append(resize, head, rail);
@@ -185,9 +187,21 @@ function mount() {
         document.getElementById('duet-sp-collapse').addEventListener('click', () => {
             stageMode.setActive(!panel.classList.contains('duet-stage-collapsed'));
         });
-        document.getElementById('duet-sp-close').addEventListener('click', () => {
-            if (settings().panelOpen) toggleSidePanel();
+        document.getElementById('duet-sp-close').addEventListener('click', () => foldSidePanel(true));
+    }
+
+    if (!document.getElementById('duet-side-tab')) {
+        const tab = h('button', {
+            type: 'button',
+            id: 'duet-side-tab',
+            class: 'duet-panel-tab',
+            'aria-label': 'Open the side panel',
+            'data-duet-tip': 'Open the side panel',
+            hidden: true,
         });
+        tab.append(h('i', { class: 'fa-solid fa-chevron-left', 'aria-hidden': 'true' }), h('span', { text: 'Panel' }));
+        document.body.append(tab);
+        tab.addEventListener('click', () => foldSidePanel(false));
     }
 
     if (!document.getElementById('duet-stow-tab')) {
@@ -271,7 +285,9 @@ function mountSettings() {
     });
     stowed.querySelector('input').addEventListener('change', () => setStowed(stowed.querySelector('input').checked));
     panel.querySelector('input').addEventListener('change', () => {
-        settings().panelOpen = panel.querySelector('input').checked;
+        const s = settings();
+        s.panelOpen = panel.querySelector('input').checked;
+        if (s.panelOpen) setFolded(s, 'side', false);
         saveSettings();
         applyLayout();
     });
@@ -288,7 +304,7 @@ function syncSettingsForm() {
     if (width) width.value = String(s.width);
     if (scale) scale.value = String(s.textScale);
     if (stowed) stowed.checked = s.stowed;
-    if (panel) panel.checked = s.panelOpen;
+    if (panel) panel.checked = sidePanelOpen(s);
     document.querySelectorAll('#st-duet-stage-settings [data-feature-toggle]').forEach((input) => {
         input.checked = featureOn(s, input.getAttribute('data-feature-toggle'));
     });
@@ -298,8 +314,26 @@ function syncSettingsForm() {
 
 let wasStowed = false;
 
+/* the Clean stage keeps the side panel (and other extensions' side HUDs) out of sight; panelOpen stays saved for later */
+function cleanStage(s) {
+    return featureOn(s, 'stage') && featureOn(s, 'clean');
+}
+
+/* open, and not folded away at this screen size */
+function sidePanelOpen(s) {
+    return featureOn(s, 'panels') && s.panelOpen && !isFolded(s, 'side') && !cleanStage(s);
+}
+
+/* A width you dragged is kept, but never more than 45% of the window. Untouched, the panel follows the window:
+   300px on a laptop, 520px on a 2560px+ screen. */
+function sidePanelWidth(s) {
+    const w = window.innerWidth;
+    const want = s.panelSized ? s.panelWidth : clamp(Math.round(w * 0.17), 300, 520);
+    return clamp(want, 240, Math.max(240, Math.round(w * 0.45)));
+}
+
 function columnWidth(s) {
-    const room = Math.max(200, window.innerWidth - (s.panelOpen ? s.panelWidth : 0) - 24);
+    const room = Math.max(200, window.innerWidth - (sidePanelOpen(s) ? sidePanelWidth(s) : 0) - 24);
     return Math.max(200, Math.min(s.width, room));
 }
 
@@ -309,11 +343,17 @@ function applyLayout() {
     const body = document.body;
     const stageOn = featureOn(s, 'stage');
     const panelsOn = featureOn(s, 'panels');
-    const panelOpen = panelsOn && s.panelOpen;
+    const panelOpen = sidePanelOpen(s);
     root.style.setProperty('--duet-col-w', `${columnWidth(s)}px`);
     root.style.setProperty('--duet-text-scale', String(s.textScale));
-    root.style.setProperty('--duet-panel-w', `${panelOpen ? s.panelWidth : 0}px`);
+    root.style.setProperty('--duet-panel-w', `${panelOpen ? sidePanelWidth(s) : 0}px`);
+    root.style.setProperty('--duet-panel-full-w', `${sidePanelWidth(s)}px`);
+    const clean = cleanStage(s);
+    const tucked = panelsOn && s.panelOpen && !panelOpen && !clean;
+    const sideTab = document.getElementById('duet-side-tab');
+    if (sideTab) sideTab.hidden = !tucked;
     body.classList.toggle('st-duet-on', stageOn);
+    body.classList.toggle('duet-clean', clean);
     body.classList.toggle('st-duet-vn', stageOn);
     body.classList.toggle('duet-stowed', stageOn && s.stowed);
     body.classList.toggle('duet-panel-open', panelOpen);
@@ -333,6 +373,8 @@ function applyLayout() {
     const panel = document.getElementById(PANEL_ID);
     if (panel) {
         panel.classList.toggle('open', panelOpen);
+        panel.classList.toggle('duet-tucked', tucked);
+        panel.inert = tucked || clean;
         panel.classList.toggle('duet-panels-off', !panelsOn);
     }
     document.querySelectorAll('[data-duet-dock-btn]').forEach((btn) => {
@@ -389,13 +431,14 @@ function startDrag(ev, which) {
     document.body.classList.add('duet-dragging');
     const s = settings();
     const startX = ev.clientX;
-    const startW = which === 'panel' ? s.panelWidth : s.width;
+    const startW = which === 'panel' ? sidePanelWidth(s) : s.width;
     const move = (e) => {
         const dx = e.clientX - startX;
         if (which === 'panel') {
             s.panelWidth = clamp(startW - dx, 240, Math.min(720, window.innerWidth - 160));
+            s.panelSized = true;
         } else {
-            const room = Math.max(320, window.innerWidth - (s.panelOpen ? s.panelWidth : 0) - 24);
+            const room = Math.max(320, window.innerWidth - (sidePanelOpen(s) ? sidePanelWidth(s) : 0) - 24);
             const next = which === 'col-right' ? startW + dx : startW - dx;
             s.width = clamp(next, 320, Math.min(1200, room));
         }
@@ -430,7 +473,7 @@ const savedTitle = new WeakMap();
 let tipHost = null;
 
 function duetSurface(node) {
-    return !!(node && node.closest && node.closest('#sheld, #duet-side-panel, #duet-stow-tab, #duet-menu, #st-duet-stage-settings, #stcc-modal, #duet-vn'));
+    return !!(node && node.closest && node.closest('#sheld, #duet-side-panel, #duet-stow-tab, #duet-side-tab, #duet-game-tab, #duet-menu, #st-duet-stage-settings, #stcc-modal, #duet-vn'));
 }
 
 function findTipHost(target) {
@@ -515,11 +558,26 @@ function toggleSidePanel() {
         closeMenu();
         return false;
     }
-    s.panelOpen = !s.panelOpen;
+    if (sidePanelOpen(s)) setFolded(s, 'side', true);
+    else {
+        s.panelOpen = true;
+        setFolded(s, 'side', false);
+    }
     saveSettings();
     applyLayout();
     closeMenu();
-    return s.panelOpen;
+    return sidePanelOpen(s);
+}
+
+/* the close button, Esc and a click outside fold it at this screen size; the edge tab brings it back */
+function foldSidePanel(on) {
+    const s = settings();
+    const hadFocus = !!panelEl()?.contains(document.activeElement);
+    setFolded(s, 'side', on);
+    if (!on && featureOn(s, 'panels')) s.panelOpen = true;
+    saveSettings();
+    applyLayout();
+    if (on && hadFocus) document.getElementById('duet-side-tab')?.focus({ preventScroll: true });
 }
 
 const stageMode = {
@@ -528,8 +586,9 @@ const stageMode = {
         if (!el) return;
         const on = !!active;
         el.classList.toggle('duet-stage-collapsed', on);
-        if (on && featureOn(settings(), 'panels') && !settings().panelOpen) {
+        if (on && featureOn(settings(), 'panels') && !sidePanelOpen(settings())) {
             settings().panelOpen = true;
+            setFolded(settings(), 'side', false);
             saveSettings();
         }
         applyLayout();
@@ -557,7 +616,7 @@ function renderMenu() {
     const menu = document.getElementById('duet-menu');
     if (!menu) return;
     menu.replaceChildren();
-    const open = !!settings().panelOpen;
+    const open = sidePanelOpen(settings());
     const show = h('button', { type: 'button', role: 'menuitem', text: open ? 'Hide Side Panel' : 'Show Side Panel' });
     show.addEventListener('click', () => toggleSidePanel());
     menu.append(show);
@@ -904,6 +963,14 @@ function boot() {
     applyLayout();
     bindTips();
     bindMenuDismiss();
+    registerFoldable({
+        which: 'side',
+        el: panelEl,
+        tab: () => document.getElementById('duet-side-tab'),
+        isOpen: () => sidePanelOpen(settings()) && !!panelEl()?.classList.contains('open'),
+        fold: () => foldSidePanel(true),
+    });
+    bindFoldKeys();
     document.addEventListener('wheel', onWheel, { passive: false, capture: true });
     window.addEventListener('resize', () => applyLayout());
     bindSpriteEvents();

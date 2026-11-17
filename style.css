@@ -1323,7 +1323,7 @@ body.st-duet-vn:not(.duet-stowed) #duet-under { visibility: hidden; }
    Whenever someone is on stage. Set up like the Duet artifact (claude.ai/artifact/XgdMmbrxNYG2WhC9Pt2oEd):
    a flat 300px info panel flush against the sidebar (yours, mirrored to the left), then a full-bleed stage
    with her standing at its right edge behind a chat column of min(720px, 60%). Duet values are kept as-is. */
-#duet-scene.is-habit { --gw: var(--duet-game-w, 300px); --sw: calc(100% - var(--gw)); }
+#duet-scene.is-habit { --gwo: var(--duet-game-w, clamp(248px, calc(14vw + 40px), 420px)); --gw: var(--gwo); --sw: calc(100% - var(--gw)); --cw: min(clamp(720px, 34vw, 980px), calc(var(--sw) * 0.6)); }
 body.duet-panel-open #duet-scene.is-habit { --sw: calc(100% - var(--gw) - var(--duet-panel-w, 0px)); }
 .dv-her { display: none; }
 #duet-scene.is-habit .dv-her { display: block; position: absolute; z-index: 0; top: 0; bottom: 0; left: var(--gw); width: var(--sw); pointer-events: none; }
@@ -1338,12 +1338,12 @@ body.duet-panel-open #duet-scene.is-habit .dv-fig.r { right: var(--duet-panel-w,
 /* the chat column: the Duet's solo .dialog */
 #duet-scene.is-habit #duet-log,
 #duet-scene.is-habit #duet-composer,
-#duet-scene.is-habit #duet-under { left: calc(var(--gw) + max(28px, calc(var(--sw) * 0.04))); right: auto; margin: 0; width: min(720px, calc(var(--sw) * 0.6)); max-width: none; box-sizing: border-box; }
+#duet-scene.is-habit #duet-under { left: calc(var(--gw) + max(28px, calc(var(--sw) * 0.04))); right: auto; margin: 0; width: var(--cw); max-width: none; box-sizing: border-box; }
 #duet-scene.is-habit #duet-log { top: 0; gap: 16px; padding: 46px 2px 8px; -webkit-mask-image: linear-gradient(transparent, #000 46px); mask-image: linear-gradient(transparent, #000 46px); }
 #duet-scene.is-habit #duet-composer { border-radius: 18px; }
 @media (min-width: 1101px) {
     /* an open drawer docks over her side; the column gives way so the box and Send stay usable */
-    #duet-scene.is-habit:has(#duet-drawer:not([hidden])) :is(#duet-log, #duet-composer, #duet-under) { width: max(300px, min(720px, calc(var(--sw) * 0.6), calc(var(--sw) - max(28px, calc(var(--sw) * 0.04)) - 464px))); }
+    #duet-scene.is-habit:has(#duet-drawer:not([hidden])) :is(#duet-log, #duet-composer, #duet-under) { width: max(300px, min(var(--cw), calc(var(--sw) - max(28px, calc(var(--sw) * 0.04)) - 464px))); }
 }
 #duet-scene.is-habit .dv-banner { left: calc(var(--gw) + var(--sw) / 2); }
 
@@ -1396,7 +1396,7 @@ body.duet-panel-open #duet-scene.is-habit .dv-fig.r { right: var(--duet-panel-w,
 
 /* the Duet at 1100px and under: sprites 44% and dimmed behind the lines; the panel narrows instead of leaving */
 @media (max-width: 1100px) {
-    #duet-scene.is-habit { --gw: 260px; }
+    #duet-scene.is-habit { --gwo: 260px; }
     #duet-scene.is-habit .dv-fig.r { width: calc(var(--sw) * 0.44); opacity: 0.55; }
     #duet-scene.is-habit #duet-log,
     #duet-scene.is-habit #duet-composer,
@@ -1418,4 +1418,125 @@ body.duet-panel-open #duet-scene.is-habit .dv-fig.r { right: var(--duet-panel-w,
     #duet-scene.is-habit #duet-log,
     #duet-scene.is-habit #duet-composer,
     #duet-scene.is-habit #duet-under { left: 8px; right: 8px; width: auto; }
+}
+
+/* ---------- 0.6.0: side panels that follow the window, and fold away ----------
+   The game panel is clamp()ed to the window (248px on a laptop, 420px on a 2560px+ screen) and the chat
+   column grows with it. Her sprite fills her side instead of stopping at the picture's own pixel size. */
+#duet-scene.is-habit .dv-fig.r.is-sprite img { --duet-sprite-shift: 0px; width: 100%; height: 100%; object-fit: contain; object-position: center bottom; }
+@media (min-width: 1101px) and (max-width: 1500px) {
+    /* a laptop: she stands a little behind the chat column, so she steps back a bit */
+    #duet-scene.is-habit .dv-fig.r { opacity: 0.82; }
+}
+
+/* folded: the panel goes and the chat column stays where it was (other extensions dock their own panels over
+   that strip, so the column never slides under them); the tab at the edge brings the panel back */
+#duet-scene.is-habit.is-game-folded { --gw: 0px; --gh: 0px; }
+#duet-scene.is-habit.is-game-folded :is(#duet-log, #duet-composer, #duet-under) { left: calc(var(--gwo) + max(28px, calc(var(--sw) * 0.04))); }
+.duet-panel-tab { position: fixed; z-index: 3150; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; align-items: center; gap: 10px; width: 36px; margin: 0; padding: 16px 0; box-sizing: border-box; color: #f6f8fb; background: rgba(15, 17, 24, 0.96); border: 1px solid rgba(255, 124, 191, 0.6); box-shadow: 0 0 20px -6px #ff7cbf; font: 600 0.72rem/1 "IBM Plex Mono", ui-monospace, monospace; letter-spacing: 0.14em; text-transform: uppercase; cursor: pointer; pointer-events: auto; }
+.duet-panel-tab span { writing-mode: vertical-rl; }
+.duet-panel-tab:hover, .duet-panel-tab:focus-visible { border-color: #ff7cbf; background: rgba(42, 20, 38, 0.98); outline: none; }
+.duet-panel-tab[hidden], body:not(.st-duet-vn) #duet-game-tab { display: none !important; }
+#duet-side-tab { right: 0; border-right: 0; border-radius: 12px 0 0 12px; animation: duet-tab-from-right 0.28s ease-out 0.12s backwards; }
+#duet-game-tab { left: var(--duet-nav-w, 272px); border-left: 0; border-radius: 0 12px 12px 0; animation: duet-tab-from-left 0.28s ease-out backwards; }
+@keyframes duet-tab-from-right { from { transform: translate(100%, -50%); } }
+@keyframes duet-tab-from-left { from { transform: translate(-100%, -50%); } }
+
+/* The right panel tucks into the right edge instead of vanishing: it slides out past the edge (still laid out,
+   inert while tucked) and slides back from the Panel tab. Fully closed (the menu or Settings) it stays display: none. */
+#duet-side-panel { transform: translateX(0); transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1), visibility 0s linear 0s; }
+#duet-side-panel.duet-tucked { display: flex; width: var(--duet-panel-full-w, 340px); transform: translateX(calc(100% + 24px)); visibility: hidden; pointer-events: none; transition: transform 0.28s cubic-bezier(0.55, 0, 0.78, 0.4), visibility 0s linear 0.28s; }
+body.duet-dragging #duet-side-panel { transition: none; }
+@media (prefers-reduced-motion: reduce) {
+    #duet-side-panel, #duet-side-panel.duet-tucked { transition: none; }
+    #duet-side-tab, #duet-game-tab { animation: none; }
+}
+/* The right panel starts under SillyTavern's top bar, and its ✕ is pinned in a strip at the panel's top corner.
+   Card Creator inserts its docks above .duet-sp-head, which pushed the ✕ down under other HUDs (COM-69's side
+   bars sit at z-index 80 from 16% down); the corner stays clear of them. */
+#duet-side-panel { top: calc(var(--topBarBlockSize, 46px) + 6px); padding-top: 52px; }
+#duet-side-panel #duet-sp-close { position: absolute; z-index: 3; top: 8px; right: 10px; }
+
+/* close buttons big enough to hit: 36px, with a border so they read as buttons */
+#duet-vn .dv-fold { flex: none; width: 36px; height: 36px; display: grid; place-items: center; margin: -6px -6px -6px 0; padding: 0; border: 1px solid var(--edge2); border-radius: 10px; background: var(--glass); color: var(--text); font-size: 1rem; line-height: 1; }
+#duet-vn .dv-fold:hover, #duet-vn .dv-fold:focus-visible { border-color: var(--pink); background: color-mix(in srgb, var(--pink) 18%, transparent); outline: none; }
+#duet-sp-close { width: 36px; height: 36px; min-width: 36px; display: grid; place-items: center; padding: 0; font-size: 1.05rem; border: 1px solid rgba(255, 255, 255, 0.26); border-radius: 10px; background: rgba(255, 255, 255, 0.07); }
+#duet-sp-close:hover, #duet-sp-close:focus-visible { border-color: #ff7cbf; background: rgba(255, 124, 191, 0.18); outline: none; }
+
+@media (max-width: 820px) {
+    /* a phone: the panel is a strip on top, so its tab sits at the top left */
+    #duet-game-tab { top: calc(var(--topBarBlockSize, 46px) + 8px); transform: none; flex-direction: row; width: auto; padding: 8px 12px; }
+    #duet-game-tab span { writing-mode: horizontal-tb; }
+    #duet-scene.is-habit.is-game-folded :is(#duet-log, #duet-composer, #duet-under) { left: 8px; }
+    #duet-scene.is-habit.is-game-folded #duet-log { top: 44px; }
+}
+
+/* ---------- 0.6.0: the Clean stage ----------
+   The Duet Staging artifact's duo stage (claude.ai/artifact/XgdMmbrxNYG2WhC9Pt2oEd, captured 2026-11-17): your persona
+   bottom-left, her bottom-right, the dialogue in a centred column between, the one who did not speak last dimmed.
+   The column follows the window (about the artifact's 680px on a 1920px screen) and the figures hug it, so on a very
+   wide screen the spare room goes to the outer edges instead of opening a gap in the middle. A figure is never wider
+   than the stage is tall, which is the most a full-height sprite can use. */
+#duet-scene.is-frames {
+    --col: clamp(520px, calc(28vw + 140px), 1000px);
+    --ov: clamp(48px, 5vw, 160px);
+    --fw: max(200px, min(calc(50% - var(--col) / 2 + var(--ov)), calc((100vh - var(--topBarBlockSize, 46px)) * 0.95)));
+}
+#duet-scene.is-frames .dv-fig { display: flex; bottom: 0; right: auto; height: 95%; width: var(--fw); z-index: 0; transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.32s, filter 0.4s; }
+#duet-scene.is-frames .dv-fig.l { left: calc(50% - var(--col) / 2 + var(--ov) - var(--fw)); --c: var(--lc); }
+#duet-scene.is-frames .dv-fig.r { left: calc(50% + var(--col) / 2 - var(--ov)); --c: var(--rc); }
+#duet-scene.is-frames .dv-fig.r::before,
+#duet-scene.is-frames .dv-fig::before { content: ""; position: absolute; left: 12%; right: 12%; bottom: 6%; height: 72%; z-index: -1; border-radius: 50%; background: radial-gradient(closest-side, color-mix(in srgb, var(--c) 60%, transparent), transparent); filter: blur(30px); opacity: 0.32; pointer-events: none; transition: opacity 0.6s; }
+#duet-scene.is-frames .dv-fig.is-dim { filter: brightness(0.52) saturate(0.75); transform: translateY(10px) scale(0.985); }
+#duet-scene.is-frames .dv-fig.is-dim::before { opacity: 0.12; }
+#duet-scene.is-frames .dv-fig.is-sprite img { --duet-sprite-shift: 0px; width: 100%; height: 100%; max-height: none; object-fit: contain; object-position: center bottom; filter: drop-shadow(0 24px 40px rgba(0, 0, 0, 0.6)); }
+/* a plain avatar (her persona picture) stands in the artifact's frame: rounded top, fading into the floor */
+#duet-scene.is-frames .dv-fig:not(.is-sprite) img { --duet-sprite-shift: 0px; width: auto; height: 78%; max-width: 100%; max-height: none; object-fit: cover; object-position: center top; margin: 0; border-radius: 26px 26px 0 0; -webkit-mask-image: linear-gradient(#000 62%, transparent); mask-image: linear-gradient(#000 62%, transparent); }
+#duet-scene.is-frames .dv-fig figcaption { display: block; bottom: 14px; }
+#duet-scene.is-frames .dv-fig.l figcaption { left: 20px; right: auto; }
+#duet-scene.is-frames .dv-fig.r figcaption { right: 20px; left: auto; }
+
+/* tucked: the figure slides out past its own edge and leaves a tab with the name on it */
+#duet-scene.is-frames.is-you-tucked .dv-fig.l { transform: translateX(calc(-100% - 40px)); opacity: 0; pointer-events: none; }
+#duet-scene.is-frames.is-them-tucked .dv-fig.r { transform: translateX(calc(100% + 40px)); opacity: 0; pointer-events: none; }
+/* the ✕ sits on the outer edge, below Muse in the top right corner */
+#duet-scene.is-frames .dv-fig img { position: relative; z-index: 1; }
+#duet-scene.is-frames .dv-fig-fold { display: grid; position: absolute; z-index: 4; top: 22%; pointer-events: auto; margin: 0; background: rgba(15, 17, 24, 0.9); border-color: rgba(255, 255, 255, 0.26); box-shadow: 0 6px 18px -6px rgba(0, 0, 0, 0.8); opacity: 0.85; transition: opacity 0.2s; }
+#duet-scene.is-frames .dv-fig.l .dv-fig-fold { left: 14px; }
+#duet-scene.is-frames .dv-fig.r .dv-fig-fold { right: 14px; }
+#duet-scene.is-frames .dv-fig:hover .dv-fig-fold, #duet-scene.is-frames .dv-fig-fold:focus-visible { opacity: 1; }
+#duet-scene.is-frames .dv-fig-fold:hover, #duet-scene.is-frames .dv-fig-fold:focus-visible { background: rgba(42, 20, 38, 0.96); }
+.dv-fig-fold { display: none; }
+.duet-frame-tab.is-l { left: var(--duet-nav-w, 272px); border-left: 0; border-radius: 0 12px 12px 0; animation: duet-tab-from-left 0.28s ease-out backwards; }
+.duet-frame-tab.is-r { right: 0; border-right: 0; border-radius: 12px 0 0 12px; animation: duet-tab-from-right 0.28s ease-out backwards; }
+.duet-frame-tab span { max-height: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+body:not(.st-duet-vn) .duet-frame-tab { display: none !important; }
+
+/* the dialogue column, centred between the two of you */
+#duet-scene.is-frames :is(#duet-log, #duet-composer, #duet-under) { left: calc(50% - var(--col) / 2); right: auto; width: var(--col); max-width: calc(100% - 16px); margin: 0; box-sizing: border-box; }
+#duet-scene.is-frames #duet-log { -webkit-mask-image: linear-gradient(transparent, #000 46px); mask-image: linear-gradient(transparent, #000 46px); padding-top: 46px; top: 0; }
+#duet-scene.is-frames .dv-banner { left: 50%; }
+@media (min-width: 1101px) {
+    /* an open drawer docks on the right; the column steps left of it so the box and Send stay usable */
+    #duet-scene.is-frames:has(#duet-drawer:not([hidden])) { --dcol: max(300px, min(var(--col), calc(100% - 480px))); }
+    #duet-scene.is-frames:has(#duet-drawer:not([hidden])) :is(#duet-log, #duet-composer, #duet-under) { width: var(--dcol); left: max(16px, min(calc(50% - var(--col) / 2), calc(100% - 464px - var(--dcol)))); }
+}
+#duet-scene.is-frames .dv-turn { max-width: 88%; }
+
+/* everything that is not the two of you and the chat waits while the Clean stage is on (settings are kept) */
+body.duet-clean :is(#duet-game, #duet-game-tab, #duet-side-panel, #duet-side-tab, #ssp-info, #com69-side-hud-left, #com69-side-hud-right, #com69-meters-dock-chip) { display: none !important; }
+
+@media (max-width: 1100px) {
+    #duet-scene.is-frames .dv-fig.is-dim { opacity: 0.55; }
+}
+@media (max-width: 820px) {
+    /* a phone, as on the artifact: she stands full height behind the chat, you small and faded at the bottom left */
+    #duet-scene.is-frames { --col: calc(100% - 16px); }
+    #duet-scene.is-frames .dv-fig.r { left: 0; width: 100%; height: 96%; opacity: 0.6; }
+    #duet-scene.is-frames .dv-fig.l { left: -12%; width: 48%; height: 54%; opacity: 0.6; }
+    #duet-scene.is-frames .dv-fig.is-dim { transform: none; }
+    #duet-scene.is-frames .dv-fig figcaption, #duet-scene.is-frames .dv-fig-fold { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+    #duet-scene.is-frames .dv-fig, .duet-frame-tab { transition: none; animation: none; }
 }
