@@ -37,6 +37,12 @@ const MOOD_ALIAS = {
     thoughtful: 'thinking', sleepy: 'tired',
 };
 const NEUTRAL = ['neutral', 'normal', 'base', 'default', 'idle', 'standing', 'stand'];
+/* Card Creator's rule for an idle clip, so both extensions agree on which of her files loop */
+const IDLE_CLIP = /\.gif$|(?:^|[-_ ])(idle|breath|cycle|bounce|sway|flourish|wave)(?:[-_. ]|$)/i;
+/* Card Creator's 💗 Right now bars, read from extensionSettings['st-card-creator'].hearts; never written here */
+const HEART_BARS = [['aff', '💗 Affection', '#ff7cbf'], ['trust', '🤝 Trust', '#7dd3fc'], ['spark', '✨ Spark', '#c084fc'], ['comfort', '☁ Comfort', '#86efac'], ['jeal', '😾 Jealousy', '#fbbf24'], ['energy', '⚡ Energy', '#fde047']];
+const HEART_STAGES = [[0, 'Strangers'], [20, 'Friendly'], [40, 'Close friends'], [60, 'Crushing'], [78, 'Sweethearts'], [92, 'Devoted']];
+const LINES_PER_LEVEL = 20;
 
 const hooks = {
     setDock: () => {},
@@ -65,6 +71,7 @@ const S = {
     sugKey: '',
     sugBusy: false,
     thinkFor: null,
+    gameSig: '',
 };
 
 let recognition = null;
@@ -371,8 +378,10 @@ function mount() {
   </button>
 </aside>
 <div id="duet-scene">
+  <div id="duet-her" class="dv-her" aria-hidden="true"></div>
   <figure class="dv-fig l" id="duet-fig-l"></figure>
   <figure class="dv-fig r" id="duet-fig-r"></figure>
+  <aside id="duet-game" class="dv-game" aria-label="Game panel" hidden></aside>
   <div id="duet-subl" hidden></div>
   <div id="duet-drift" hidden></div>
   <div id="duet-banner" class="dv-banner" hidden></div>
@@ -519,6 +528,8 @@ function renderChrome() {
         el.hidden = !featureOn(prefs(), el.getAttribute('data-feature'));
     });
     document.getElementById('duet-scene')?.classList.toggle('is-solo', featureOn(prefs(), 'solo') && !!prefs().solo);
+    document.getElementById('duet-scene')?.classList.toggle('is-habit', habitOn(ctx));
+    renderGame();
     document.body.classList.toggle('duet-calm', !!prefs().calm);
     document.querySelectorAll('#duet-nav [data-nav]').forEach((btn) => {
         btn.setAttribute('aria-pressed', String(btn.getAttribute('data-nav') === S.drawer && S.drawer !== ''));
@@ -532,6 +543,78 @@ function renderChrome() {
         scene.style.setProperty('--lc', '#c9f07a');
         scene.style.setProperty('--rc', /^#[0-9a-f]{6}$/i.test(own) ? own : '#ff7cbf');
     }
+}
+
+/* The talk layout: whenever a character is on stage, she takes the right panel and your game panel the left */
+function habitOn(ctx) {
+    return featureOn(prefs(), 'habit') && (!!activeChar(ctx) || !!ctx.groupId);
+}
+
+function heartsOf(ch) {
+    const all = getCtx().extensionSettings?.['st-card-creator']?.hearts;
+    const h = ch?.avatar && all && typeof all === 'object' ? all[ch.avatar] : null;
+    return h && typeof h === 'object' ? h : null;
+}
+
+function pct(v) {
+    return Math.max(0, Math.min(100, Math.round(Number(v) || 0)));
+}
+
+function gameHTML(ctx, ch) {
+    const chat = Array.isArray(ctx.chat) ? ctx.chat : [];
+    const said = chat.filter((m) => m && !m.is_system);
+    const mine = said.filter((m) => m.is_user).length;
+    const hers = said.length - mine;
+    const tokens = chat.reduce((n, m) => n + (Number(m?.extra?.token_count) || 0), 0);
+    const level = 1 + Math.floor(said.length / LINES_PER_LEVEL);
+    const into = said.length % LINES_PER_LEVEL;
+    const h = heartsOf(ch);
+    const lastThem = [...chat].reverse().find((m) => m && !m.is_user && !m.is_system);
+    const mood = String(h?.emo || moodIn(mesText(lastThem)) || expressionNow().label || 'neutral');
+    let stage = '';
+    if (h) {
+        const v = (pct(h.aff) + pct(h.trust) + pct(h.spark) + pct(h.comfort)) / 4;
+        HEART_STAGES.forEach(([n, label]) => { if (v >= n) stage = label; });
+    }
+    const name = ch?.name || ctx.name2 || 'Her';
+    const bars = h
+        ? HEART_BARS.map(([k, label, c]) => `<div class="dv-meter" data-bar="${k}" style="--m:${c}"><span>${esc(label)}</span><b>${pct(h[k])}</b><i style="width:${pct(h[k])}%"></i></div>`).join('')
+        : `<p class="dv-note">Card Creator's 💗 Right now fills these six bars. Open it once for ${esc(name)} and they show up here.</p>`;
+    const quest = String(ctx.chatMetadata?.duet_quest || '');
+    return `<header class="dv-gh"><span class="av" id="duet-game-av"></span><div><b>${esc(name)}</b><small>Level ${level}${stage ? ` · ${esc(stage)}` : ''}</small></div></header>
+<div class="dv-sec"><i></i>Level ${level}</div>
+<div class="dv-meter xp" data-bar="xp" style="--m:var(--lc)"><span>${into} / ${LINES_PER_LEVEL} lines to level ${level + 1}</span><i style="width:${Math.round((into / LINES_PER_LEVEL) * 100)}%"></i></div>
+<div class="dv-sec"><i></i>Right now</div>
+<div class="dv-mood">Mood <b id="duet-game-mood">${esc(mood)}</b></div>
+${bars}
+<div class="dv-sec"><i></i>Quest</div>
+<input id="duet-quest" type="text" maxlength="160" value="${esc(quest)}" placeholder="No quest yet. Write one; it stays with this chat." aria-label="Quest for this chat">
+<div class="dv-sec"><i></i>Stats</div>
+<dl class="dv-stats"><div><dt>Your lines</dt><dd>${mine}</dd></div><div><dt>Her lines</dt><dd>${hers}</dd></div><div><dt>Tokens</dt><dd>${tokens ? `≈${tokens}` : '–'}</dd></div></dl>`;
+}
+
+function renderGame() {
+    const host = document.getElementById('duet-game');
+    if (!host) return;
+    const ctx = getCtx();
+    const on = habitOn(ctx);
+    host.hidden = !on;
+    if (!on) return;
+    if (host.contains(document.activeElement)) return;
+    const ch = activeChar(ctx);
+    const html = gameHTML(ctx, ch);
+    if (html === S.gameSig) return;
+    S.gameSig = html;
+    host.innerHTML = html;
+    paintAv(document.getElementById('duet-game-av'), ch ? thumb('avatar', ch.avatar) : '', ch?.name || '?');
+}
+
+function saveQuest(value) {
+    const ctx = getCtx();
+    if (!ctx.chatMetadata) return;
+    ctx.chatMetadata.duet_quest = String(value || '').trim();
+    ctx.saveMetadata?.();
+    S.gameSig = '';
 }
 
 function paintAv(node, url, label) {
@@ -794,7 +877,22 @@ async function renderSprites() {
         fallbackUrl: right ? thumb('avatar', right.avatar) : '',
         mood: moodIn(mesText(lastThem)),
         expression,
+        idle: habitOn(ctx),
+        turn: chat.filter((m) => m && !m.is_user && !m.is_system).length,
     }, token);
+}
+
+/* Her own looping clips: sprite files that pass IDLE_CLIP, plus the ST-folder clips Card Creator wired into companion_stage.media */
+function idleClips(ch, pack) {
+    const out = pack.list.filter((s) => IDLE_CLIP.test(String(s.path).split('?')[0].split('/').pop())).map((s) => s.path);
+    const media = ch?.data?.extensions?.companion_stage?.media;
+    if (Array.isArray(media)) {
+        for (const m of media) {
+            const url = String(m?.url || '');
+            if ((m?.type || 'idle') === 'idle' && m?.kind !== 'video' && url.startsWith('/characters/') && !out.includes(url)) out.push(url);
+        }
+    }
+    return out;
 }
 
 async function paintFigure(id, ch, opts, token) {
@@ -803,20 +901,32 @@ async function paintFigure(id, ch, opts, token) {
     const name = ch?.name || opts.fallbackName || '';
     let url = '';
     let sprite = false;
+    let idle = false;
     if (ch && featureOn(prefs(), 'sprites')) {
         const pack = await loadSprites(ch);
         if (token !== spriteToken) return;
-        if (opts.expression?.src && pack.folder && opts.expression.src.toLowerCase().includes(`/characters/${pack.folder.toLowerCase()}/`)) {
+        /* on the talk layout a neutral ST expression gives way to her idle clips */
+        const label = String(opts.expression?.label || '');
+        const expressive = !(opts.idle && (!label || NEUTRAL.includes(label)));
+        if (expressive && opts.expression?.src && pack.folder && opts.expression.src.toLowerCase().includes(`/characters/${pack.folder.toLowerCase()}/`)) {
             url = opts.expression.src;
             sprite = true;
         }
-        if (!url && opts.expression?.label) {
-            url = bestSprite(pack.list, opts.expression.label);
+        if (!url && expressive && label) {
+            url = bestSprite(pack.list, label);
             sprite = !!url;
         }
         if (!url && opts.mood) {
             url = bestSprite(pack.list, opts.mood);
             sprite = !!url;
+        }
+        if (!url && opts.idle) {
+            const clips = idleClips(ch, pack);
+            if (clips.length) {
+                url = clips[(Number(opts.turn) || 0) % clips.length];
+                sprite = true;
+                idle = true;
+            }
         }
         if (!url) {
             for (const label of NEUTRAL) {
@@ -827,6 +937,7 @@ async function paintFigure(id, ch, opts, token) {
     }
     if (!url) url = opts.fallbackUrl || (ch ? thumb('avatar', ch.avatar) : '');
     fig.classList.toggle('is-sprite', sprite);
+    fig.classList.toggle('is-idle', idle);
     fig.classList.toggle('is-empty', !url);
     fig.innerHTML = '';
     if (url) {
@@ -1270,7 +1381,8 @@ function experimentalHTML() {
 }
 
 function updatesHTML() {
-    return `<p class="dv-note"><b>0.3.3</b> — ✨ suggestions and the inner voice now work on models that always think first (GLM): if the short ask comes back empty, it asks once more with room to think, then remembers for that connection.</p>
+    return `<p class="dv-note"><b>0.4.0</b> — The talk layout, on whenever someone is on stage: she has the right panel with her idle clips and the conversation, and your game panel sits on the left (level, Card Creator's Right now bars, a quest for this chat, stats). Settings → Talk layout switches it off.</p>
+<p class="dv-note"><b>0.3.3</b> — ✨ suggestions and the inner voice now work on models that always think first (GLM): if the short ask comes back empty, it asks once more with room to think, then remembers for that connection.</p>
 <p class="dv-note"><b>0.3.2</b> — With a thinking model (Qwen 3, GLM), ✨ suggestions and the inner voice now use only the answer, never the model's scratch notes.</p>
 <p class="dv-note"><b>0.3.1</b> — The Duet Staging look: the same fonts, pink name plates, glass chat box, her big on the right with her name behind her, and the little bar under the box (ST chat, Calm, Settings). New: ✨ suggests three replies in the style you pick beside Reroll. The live link with Duet Staging through the Duet Stage Companion. Reply suggestions and the link each have their own switch under Settings. Everything from 0.3.0 is still here.</p>
 <p class="dv-note"><b>0.3.0</b> — Google Drive save and load for cast, cards, memory, sprites and subliminals. Library import from the Claude index, from Drive, and from a bulk upload. Each feature has its own on/off switch. Pictures keep their original size.</p>
@@ -1775,6 +1887,7 @@ function tickOverlays() {
         }
         if (!innerOn) drift.hidden = true;
     }
+    renderGame();
 }
 
 function closeFind() {
@@ -2151,6 +2264,7 @@ async function driveLoad() {
 function applyFeatureChrome() {
     if (S.drawer && GATED.has(S.drawer) && !featureOn(prefs(), S.drawer)) closeDrawer();
     renderChrome();
+    renderSprites().catch((e) => console.warn('[st-duet-stage] sprite', e));
     applyMemory();
     tickOverlays();
     if (S.drawer === 'settings' || S.drawer === 'library' || S.drawer === 'drive') {
@@ -2237,6 +2351,8 @@ function onChange(ev) {
         prefs().solo = !!ev.target.checked;
         savePrefs();
         renderChrome();
+    } else if (id === 'duet-quest') {
+        saveQuest(ev.target.value);
     } else if (id === 'duet-set-column') {
         showColumn(!!ev.target.checked);
     } else if (id === 'duet-sug-type') {

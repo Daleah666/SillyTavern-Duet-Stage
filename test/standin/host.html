@@ -68,6 +68,18 @@
   let saved = {};
   try { saved = JSON.parse(localStorage.getItem('mock-ext-settings') || '{}'); } catch (e) { saved = {}; }
   if (q.get('fresh')) saved = {};
+  /* ?hearts=1: Card Creator's 💗 Right now bars for Bambi, as that extension saves them */
+  if (q.get('hearts')) saved['st-card-creator'] = { hearts: { 'bambi.png': { aff: 64, trust: 52, spark: 71, comfort: 48, jeal: 12, energy: 80, emo: 'flirty', level: 6 } } };
+  /* ?idle=1: Bambi's sprite folder has two idle clips (gif) next to her stills; no flirty sprite, so her [flirty] line falls to an idle clip */
+  if (q.get('idle')) {
+    const pack = [['idle', 'idle.gif'], ['idle', 'idle-sway.gif'], ['neutral', 'neutral.png'], ['happy', 'happy.png']].map(([label, f]) => ({ label, path: `/characters/bambi/${f}` }));
+    const realFetch = window.fetch.bind(window);
+    window.fetch = (url, opts) => {
+      const u = String(url);
+      if (u.startsWith('/api/sprites/get')) return Promise.resolve(new Response(JSON.stringify(/name=bambi/i.test(u) ? pack : []), { headers: { 'Content-Type': 'application/json' } }));
+      return realFetch(url, opts);
+    };
+  }
   const state = {
     extensionSettings: saved,
     characters, chat,

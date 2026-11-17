@@ -1318,3 +1318,71 @@ body.st-duet-vn:not(.duet-stowed) #duet-under { visibility: hidden; }
     #duet-muse { display: none; }
     .dv-ulbl { display: none; }
 }
+
+/* ---------- 0.4.0: the talk layout ----------
+   Whenever someone is on stage: your game panel on the left, her panel on the right with her
+   idle clips and the conversation. Same tokens as the Duet Staging look above. */
+#duet-scene.is-habit { --gw: clamp(220px, 21vw, 290px); --hl: calc(var(--gw) + 28px); --fw: min(32vw, 460px); }
+.dv-her { display: none; }
+#duet-scene.is-habit .dv-her { display: block; position: absolute; z-index: 0; top: 12px; bottom: 12px; left: var(--hl); right: 12px; border-radius: 22px; border: 1px solid color-mix(in srgb, var(--rc) 28%, var(--edge)); background: radial-gradient(70% 60% at 80% 100%, color-mix(in srgb, var(--rc) 14%, transparent), transparent 70%), var(--glass); pointer-events: none; }
+body.duet-panel-open #duet-scene.is-habit .dv-her { right: calc(var(--duet-panel-w, 0px) + 12px); }
+#duet-scene.is-habit .dv-fig.l { display: none; }
+#duet-scene.is-habit .dv-fig.r { left: auto; right: 26px; bottom: 13px; width: var(--fw); height: min(calc(100% - 26px), 940px); }
+body.duet-panel-open #duet-scene.is-habit .dv-fig.r { right: calc(var(--duet-panel-w, 0px) + 26px); }
+#duet-scene.is-habit #duet-log,
+#duet-scene.is-habit #duet-composer,
+#duet-scene.is-habit #duet-under { left: calc(var(--hl) + 16px); right: auto; margin: 0; width: min(640px, max(320px, calc(100% - var(--hl) - 52px - var(--fw)))); max-width: calc(100% - var(--hl) - 28px); }
+#duet-scene.is-habit #duet-log { top: 24px; }
+body.duet-panel-open #duet-scene.is-habit #duet-log,
+body.duet-panel-open #duet-scene.is-habit #duet-composer,
+body.duet-panel-open #duet-scene.is-habit #duet-under { width: min(640px, max(320px, calc(100% - var(--hl) - 52px - var(--fw) - var(--duet-panel-w, 0px)))); }
+#duet-scene.is-habit .dv-banner { left: calc(var(--hl) + (100% - var(--hl)) / 2); }
+
+/* your game panel */
+.dv-game[hidden] { display: none !important; }
+.dv-game { position: absolute; z-index: 6; top: 12px; bottom: 12px; left: 12px; width: var(--gw, 270px); display: flex; flex-direction: column; gap: 8px; padding: 14px; box-sizing: border-box; overflow: hidden auto; scrollbar-width: thin; border-radius: 22px; background: var(--box2); border: 1px solid color-mix(in srgb, var(--lc) 35%, var(--edge2)); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); box-shadow: 0 18px 44px -18px rgba(0, 0, 0, 0.7); }
+.dv-game > * { flex: none; }
+.dv-gh { display: flex; align-items: center; gap: 10px; }
+#duet-vn .dv-gh .av { width: 40px; height: 40px; border: 1px solid color-mix(in srgb, var(--rc) 60%, var(--edge)); box-shadow: 0 0 16px -6px var(--rc); }
+.dv-gh div { min-width: 0; }
+.dv-gh b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 500 0.95rem/1.25 var(--f-head); letter-spacing: -0.01em; }
+.dv-gh small { color: var(--faint); font: 500 0.56rem/1.5 var(--f-mono); letter-spacing: 0.1em; text-transform: uppercase; }
+.dv-game .dv-sec { margin: 4px 0 0; padding-top: 10px; }
+.dv-game .dv-sec i { background: var(--lc); box-shadow: 0 0 8px var(--lc); }
+.dv-meter { position: relative; display: flex; justify-content: space-between; gap: 8px; padding: 0 0 7px; color: var(--muted); font-size: 0.78rem; }
+.dv-meter b { color: var(--text); font: 500 0.66rem/1.6 var(--f-mono); }
+.dv-meter i { position: absolute; left: 0; bottom: 0; height: 4px; max-width: 100%; border-radius: 999px; background: var(--m); box-shadow: 0 0 10px -2px var(--m); }
+.dv-meter::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 4px; z-index: -1; border-radius: 999px; background: var(--glass2); }
+.dv-meter { z-index: 0; }
+.dv-meter.xp span { color: var(--faint); font: 500 0.58rem/1.5 var(--f-mono); letter-spacing: 0.06em; }
+.dv-mood { color: var(--muted); font-size: 0.8rem; }
+.dv-mood b { margin-left: 4px; padding: 2px 9px; border-radius: 999px; background: color-mix(in srgb, var(--rc) 18%, transparent); border: 1px solid color-mix(in srgb, var(--rc) 50%, var(--edge)); color: var(--text); font: 500 0.7rem/1.4 var(--f-head); text-transform: capitalize; }
+.dv-game .dv-note { margin: 0; color: var(--faint); }
+#duet-vn #duet-quest { width: 100%; box-sizing: border-box; padding: 7px 10px; border-radius: 10px; background: var(--glass); border: 1px solid var(--edge); color: var(--text); font: 400 0.84rem/1.3 var(--f-body); }
+#duet-vn #duet-quest::placeholder { color: var(--faint); }
+#duet-vn #duet-quest:focus { outline: none; border-color: color-mix(in srgb, var(--lc) 70%, var(--edge2)); }
+.dv-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 0; }
+.dv-stats div { padding: 6px 8px; border-radius: 10px; background: var(--glass); border: 1px solid var(--edge); }
+.dv-stats dt { color: var(--faint); font: 500 0.5rem/1.4 var(--f-mono); letter-spacing: 0.1em; text-transform: uppercase; }
+.dv-stats dd { margin: 0; font: 500 0.9rem/1.3 var(--f-head); }
+
+@media (max-width: 980px) {
+    #duet-scene.is-habit #duet-log,
+    #duet-scene.is-habit #duet-composer,
+    #duet-scene.is-habit #duet-under { left: calc(var(--hl) + 8px); right: 20px; width: auto; max-width: none; }
+    #duet-scene.is-habit .dv-fig.r { opacity: 0.55; }
+}
+
+/* a phone: the game panel becomes a strip on top, her panel fills the rest */
+@media (max-width: 820px) {
+    #duet-scene.is-habit { --gh: 150px; --hl: 8px; }
+    .dv-game { top: 8px; left: 8px; right: 8px; bottom: auto; width: auto; max-height: var(--gh, 150px); padding: 10px 12px; gap: 6px; }
+    .dv-game .dv-sec, .dv-game .dv-stats, .dv-game .dv-note { display: none; }
+    .dv-gh { padding-right: 150px; }   /* clear of the Chat tab pinned top right */
+    #duet-scene.is-habit .dv-her { top: calc(var(--gh) + 16px); left: 8px; right: 8px; bottom: 8px; }
+    #duet-scene.is-habit #duet-log { top: calc(var(--gh) + 22px); }
+    #duet-scene.is-habit #duet-log,
+    #duet-scene.is-habit #duet-composer,
+    #duet-scene.is-habit #duet-under { left: 14px; right: 14px; }
+    #duet-scene.is-habit .dv-fig.r { right: 8px; bottom: 9px; width: calc(100% - 16px); height: calc(100% - var(--gh) - 26px); opacity: 0.6; }
+}

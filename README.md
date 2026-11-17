@@ -36,6 +36,16 @@ The stage now wears the Duet Staging page's clothes: Unbounded, Instrument Sans,
 - She stands big on the right with her name behind her, and the chat sits beside her. This is Solo Stage, switched on once by 0.3.1; Solo Stage in the sidebar switches the two-character stage back.
 - A narrow box drops chips and wraps its buttons instead of overflowing. Under 820px the sidebar folds to icons.
 
+## The talk layout (0.4.0)
+
+On by default whenever a character is on stage (Settings → **Talk layout** switches it off; with nobody on stage the 0.3 stage shows as before).
+
+- **Right: her panel.** A glass panel in her colour holds her figure, the conversation and the chat box. Her figure plays her own idle clips: sprite files in her SillyTavern sprite folder that are a `.gif` or have idle, breath, cycle, bounce, sway, flourish or wave in the name (the same rule Card Creator uses), plus the `/characters/…` idle clips Card Creator wired into `companion_stage.media`. A `[mood]` in her line or a non-neutral SillyTavern expression still shows that sprite; with no clips the neutral still and then her avatar are used. Calm still stops the sway. Nothing new is drawn or generated.
+- **Left: your game panel.** Her name and avatar, a level, Card Creator's 💗 Right now bars (Affection, Trust, Spark, Comfort, Jealousy, Energy), her mood and relationship stage, a quest line for this chat, and line and token counts. The bars are read from `extensionSettings['st-card-creator'].hearts` and never written here; until Card Creator has scored her, the panel says so.
+- **Placeholder:** the level is one level per 20 lines in the open chat. There is no XP system behind it yet.
+- The quest is saved on the chat as `chatMetadata.duet_quest`. It is not added to the prompt.
+- Under 820px the game panel becomes a short strip above her panel.
+
 ## The Duet Staging link (sync.js, 0.3.1)
 
 With the **Duet Stage Companion** Chrome extension (0.2.0+, `chrome-companion/` in the desktop-companion repo) installed, a 🔗 button appears in SillyTavern's top bar. Open Duet Staging (the Claude page) in another tab of the same Chrome and the dot turns green. From then on:
@@ -71,7 +81,7 @@ The Claude page cannot be framed or opened as a linked popup (its `frame-ancesto
 
 SillyTavern's extension settings, and **More → Settings** on the stage, each have a checkbox:
 
-Stage takeover, Side panel, Chats, Cast, Card, Memory, Library, Stage sprites, Subliminals, Inner voice, Solo Stage, Drive sync, Mirror, Reply suggestions, Duet Staging link.
+Stage takeover, Side panel, Chats, Cast, Card, Memory, Library, Stage sprites, Subliminals, Inner voice, Solo Stage, Talk layout, Drive sync, Mirror, Reply suggestions, Duet Staging link.
 
 Turning one off hides that part and skips its work. The chat SillyTavern already had keeps working. Saved lines, cards and tokens stay where they were. The side-panel element stays in the page when its switch is off, so another extension looking for `#duet-side-panel` does not crash. Stage takeover off removes the column styling and the visual-novel shell.
 
@@ -110,7 +120,7 @@ node --test test/duet-hub.test.mjs
 node test/standin/smoke.js
 ```
 
-The second needs Playwright with Chromium. It serves this folder on port 8765 (not 8000, where a real SillyTavern may be running), runs the checks at three screen sizes, and exits non-zero if one fails. Add a query flag to `host.html` and a check to `smoke.js` for anything new: `?think=1`, `?glm=1` and `?offline=1` are examples.
+The second needs Playwright with Chromium. It serves this folder on port 8765 (not 8000, where a real SillyTavern may be running), runs the checks at three screen sizes, and exits non-zero if one fails. Add a query flag to `host.html` and a check to `smoke.js` for anything new: `?think=1`, `?glm=1` and `?offline=1` are examples. `?idle=1` gives Bambi a sprite folder with two idle GIFs and `?hearts=1` seeds Card Creator's Right now bars, for the talk layout.
 
 Models that think first: a short ask can come back empty. Suggestions (140 tokens) and the inner voice (80) are asked again once with 2000, then go straight to 2000 while the same connection is up.
 

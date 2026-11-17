@@ -16,6 +16,7 @@ export const FEATURES = [
     { id: 'subl', label: 'Subliminals', blurb: 'Short lines that drift across the stage.' },
     { id: 'inner', label: 'Inner voice', blurb: 'Asides you write, or one quiet question to the connected model.' },
     { id: 'solo', label: 'Solo Stage', blurb: 'Hide your side of the stage.' },
+    { id: 'habit', label: 'Talk layout', blurb: 'While you two talk: her on the right panel with her idle clips and the conversation, your game panel on the left.' },
     { id: 'drive', label: 'Drive sync', blurb: 'Save and load cast, cards, memory, sprites and subliminals on Google Drive.' },
     { id: 'mirror', label: 'Mirror', blurb: 'The mirror page.' },
     { id: 'suggest', label: 'Reply suggestions', blurb: 'The ✨ button and the three suggested replies. They use the AI connection SillyTavern already has.' },
