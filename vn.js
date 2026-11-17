@@ -27,6 +27,13 @@ import {
     saveHub,
     signOutDrive,
 } from './drive.js';
+import {
+    agentLinkEnabled,
+    agentSettingsHTML,
+    ensureAgentSettings,
+    resetAgentLinkUrl,
+    setAgentLinkUrl,
+} from './agent-link.js';
 
 const MOODS = ['neutral', 'happy', 'flirty', 'smug', 'shy', 'flustered', 'sad', 'angry', 'surprised', 'curious', 'thinking', 'tired'];
 const GATED = new Set(['chats', 'cast', 'card', 'memory', 'library', 'subl', 'inner', 'solo', 'drive', 'mirror']);
@@ -342,6 +349,7 @@ function icon(name) {
         gear: '<circle cx="12" cy="12" r="3"/><path d="M12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21M5.6 5.6l1.8 1.8M16.6 16.6l1.8 1.8M5.6 18.4l1.8-1.8M16.6 7.4l1.8-1.8"/>',
         still: '<circle cx="12" cy="5.5" r="2"/><path d="M12 8v7M8.5 11h7M12 15l-2.5 5M12 15l2.5 5"/>',
         chat: '<path d="M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-7l-4 4v-4H6a2 2 0 0 1-2-2z"/>',
+        agent: '<path d="M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H9l-5 3v-3a2 2 0 0 1-2-2z"/><path d="M12 7.2l.7 2.1 2.1.7-2.1.7-.7 2.1-.7-2.1-2.1-.7 2.1-.7z"/>',
     };
     return `<svg class="sic" viewBox="0 0 24 24" aria-hidden="true">${paths[name] || paths.spark}</svg>`;
 }
@@ -372,6 +380,7 @@ function mount() {
     <button type="button" data-act="nav" data-nav="inner" data-feature="inner">${icon('pen')}<span class="lbl">Inner voice</span></button>
     <button type="button" data-act="nav" data-nav="solo" data-feature="solo">${icon('panel')}<span class="lbl">Solo Stage</span></button>
     <button type="button" data-act="nav" data-nav="more">${icon('dots')}<span class="lbl">More</span></button>
+    <button type="button" id="duet-agent-nav-btn" data-act="ask-agent" data-duet-tip="Ask Agent (copy context &amp; open Cursor)">${icon('agent')}<span class="lbl">Ask Agent</span></button>
   </nav>
   <div class="dv-sec lbl"><i></i>Characters</div>
   <div id="duet-recent" class="dv-recent lbl" aria-label="Recent characters"></div>
@@ -400,6 +409,7 @@ function mount() {
       <div class="dv-title"><b id="duet-title">Duet Staging</b><span id="duet-sub">SillyTavern</span></div>
       <button type="button" class="dv-ic" data-act="nav" data-nav="chats" data-feature="chats" data-duet-tip="New chat and past chats" aria-label="New chat and past chats">${icon('pen')}</button>
       <button type="button" class="dv-ic" data-act="nav" data-nav="memory" data-feature="memory" data-duet-tip="What she remembers" aria-label="Memory">${icon('brain')}</button>
+      <button type="button" id="duet-agent-bar-btn" class="dv-ic" data-act="ask-agent" data-duet-tip="Ask Agent" aria-label="Ask Agent">${icon('agent')}</button>
       <button type="button" class="dv-plus" data-act="nav" data-nav="cast" data-side="r" data-feature="cast" data-duet-tip="Add or create a character" aria-label="Add or create a character">+</button>
     </header>
     <div id="duet-sug" class="dv-sug" hidden aria-label="Suggested replies"></div>
@@ -539,6 +549,11 @@ function renderChrome() {
     });
     renderRecent();
     renderComposerState();
+    const agentOff = !agentLinkEnabled(prefs());
+    const agentNavBtn = document.getElementById('duet-agent-nav-btn');
+    const agentBarBtn = document.getElementById('duet-agent-bar-btn');
+    if (agentNavBtn) agentNavBtn.hidden = agentOff;
+    if (agentBarBtn) agentBarBtn.hidden = agentOff;
     const scene = document.getElementById('duet-scene');
     if (scene) {
         /* the Duet Staging colours: lime for you, her card's own colour or pink for her */
@@ -1506,6 +1521,7 @@ ${featuresSettingsHTML()}
 <label class="check"><input id="duet-set-column" type="checkbox" ${s.stowed ? '' : 'checked'}> Show the SillyTavern chat column</label>
 <label class="check"><input id="duet-set-sugauto" type="checkbox" ${s.sugAuto ? 'checked' : ''}> Suggest three replies after every line she says</label>
 <p class="dv-note">Off, the ✨ button under the box asks for them when you want them. On, each of her lines costs one extra short call to your AI connection. The list beside Reroll sets their style.</p>
+${agentSettingsHTML(s)}
 <p class="dv-note">Ctrl+wheel over the column, or over the stage log, scales message text. Drag the column edge to resize it. Stow still tucks it away.</p>
 <p class="dv-note">Text scale ${esc(s.textScale || 1)}. Column width ${esc(s.width || 640)}px.</p>`;
 }
@@ -2440,6 +2456,15 @@ const actions = {
     stop: () => stop(),
     mic: () => toggleMic(),
     muse: () => museSay(),
+    'ask-agent': (el) => window.DuetStage?.askAgent?.(el),
+    'agent-reset-url': () => {
+        resetAgentLinkUrl(prefs());
+        savePrefs();
+        S.drawerDirty = true;
+        renderDrawer();
+        hooks.applyLayout();
+        toast('info', 'Agent URL reset to default.');
+    },
     earlier: () => { S.showAll = true; S.logSig = ''; renderLog(); },
     'swipe-left': () => swipe('left'),
     'swipe-right': () => swipe('right'),
@@ -2505,6 +2530,17 @@ function onChange(ev) {
     } else if (id === 'duet-set-sugauto') {
         prefs().sugAuto = !!ev.target.checked;
         savePrefs();
+    } else if (id === 'duet-set-agent-enabled') {
+        ensureAgentSettings(prefs()).enabled = !!ev.target.checked;
+        savePrefs();
+        hooks.applyLayout();
+        renderChrome();
+    } else if (id === 'duet-set-agent-url') {
+        const res = setAgentLinkUrl(prefs(), ev.target.value);
+        ev.target.value = res.url;
+        savePrefs();
+        hooks.applyLayout();
+        if (!res.valid) toast('info', 'Invalid Agent URL; restored default.');
     } else if (id === 'duet-set-dock2') {
         hooks.setDock(ev.target.value);
     } else if (id === 'duet-import') {
