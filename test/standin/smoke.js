@@ -238,14 +238,30 @@ const vis = (page, sel) => page.evaluate((s) => { const e = document.querySelect
             check(m.label, 'talk layout is on by default with a character on stage', /is-habit/.test(st.cls) && (await vis(page, '#duet-game')) && (await vis(page, '#duet-her')) && st.figL === 'none', st);
             check(m.label, 'game panel on the left; her, the lines and the chat box inside the right panel', g.game.r <= g.her.l && g.her.l <= g.log.l && g.her.l <= g.comp.l && g.comp.r <= g.fig.r && g.fig.r <= g.her.r && g.fig.l > g.game.r, g);
             check(m.label, 'her [flirty] line plays her own flirty idle clip', /is-idle/.test(st.fig) && /\/characters\/bambi\/desire-flirty-cycle\.gif$/.test(st.src), st);
-            const game = await page.evaluate(() => ({ bars: [...document.querySelectorAll('#duet-game [data-bar]')].map((b) => b.dataset.bar + ':' + (b.querySelector('b')?.textContent || '')), mood: document.getElementById('duet-game-mood')?.textContent, head: document.querySelector('#duet-game .dv-gh')?.innerText }));
+            const game = await page.evaluate(() => ({ bars: [...document.querySelectorAll('#duet-game [data-bar]')].map((b) => b.dataset.bar + ':' + (b.querySelector('b')?.textContent || '')), mood: document.getElementById('duet-game-mood')?.textContent, head: document.querySelector('#duet-game .dv-ih')?.innerText }));
             check(m.label, "game panel shows level, Card Creator's six Right now bars, her mood and stage", game.bars.join() === 'xp:,aff:64,trust:52,spark:71,comfort:48,jeal:12,energy:80' && game.mood === 'flirty' && /Bambi/.test(game.head) && /Level 1 · Close friends/i.test(game.head), game);
+            const duet = await page.evaluate(() => {
+                const r = (e) => { const b = e.getBoundingClientRect(); return { l: b.left, t: b.top, r: b.right, b: b.bottom, w: b.width, h: b.height }; };
+                const nav = r(document.getElementById('duet-nav')), scene = r(document.getElementById('duet-scene')), game = r(document.getElementById('duet-game'));
+                const her = r(document.getElementById('duet-her')), fig = r(document.getElementById('duet-fig-r')), log = r(document.getElementById('duet-log'));
+                const them = document.querySelector('#duet-log .dv-turn.them .bubble'), you = document.querySelector('#duet-log .dv-turn.you .bubble');
+                const plate = r(them.querySelector(':scope > b')), tb = r(them), yb = r(you);
+                const cs = getComputedStyle(them), meter = r(document.querySelector('#duet-game [data-bar="aff"] > i'));
+                return {
+                    flush: Math.abs(game.l - nav.r) < 2 && Math.abs(game.t - scene.t) < 2 && Math.abs(game.b - scene.b) < 2, gameW: Math.round(game.w), gameBg: getComputedStyle(document.getElementById('duet-game')).backgroundColor,
+                    figShare: +(fig.w / her.w).toFixed(2), figH: +(fig.h / scene.h).toFixed(2), figAtEdge: Math.abs(fig.r - her.r) < 2,
+                    logW: Math.round(log.w), logWant: Math.round(Math.min(720, her.w * 0.6)), logPad: Math.round(log.l - her.l), padWant: Math.round(Math.max(28, her.w * 0.04)),
+                    herRight: tb.r > yb.r && tb.l > yb.l, plateRight: Math.round(tb.r - plate.r), cornerTR: cs.borderTopRightRadius, cornerTL: getComputedStyle(you).borderTopLeftRadius,
+                    hairlines: document.querySelectorAll('#duet-game .dv-isec > h4').length, meterH: Math.round(meter.h),
+                };
+            });
+            check(m.label, 'talk layout follows the Duet panels: flat 300px panel flush to the sidebar, her 46% wide at the stage edge, a min(720px, 60%) chat column, her plate on the right', duet.flush && duet.gameW === 300 && duet.gameBg === 'rgb(18, 21, 28)' && Math.abs(duet.figShare - 0.46) < 0.02 && duet.figH >= 0.94 && duet.figAtEdge && Math.abs(duet.logW - duet.logWant) <= 2 && Math.abs(duet.logPad - duet.padWant) <= 2 && duet.herRight && duet.plateRight >= 12 && duet.plateRight <= 16 && duet.cornerTR === '6px' && duet.cornerTL === '6px' && duet.hairlines === 4 && duet.meterH === 8, duet);
             await page.fill('#duet-quest', 'Get her to admit she missed me'); await page.press('#duet-quest', 'Tab'); await sleep(300);
             const quest = await page.evaluate(() => ({ meta: window.mock.state.chatMetadata.duet_quest, saved: window.calls.some((c) => c[0] === 'saveMetadata') }));
             check(m.label, 'the quest saves on this chat', quest.meta === 'Get her to admit she missed me' && quest.saved, quest);
             await page.screenshot({ path: path.join(out, `${m.label}-talk.png`) });
             await page.fill('#duet-ta', 'I missed you.'); await page.click('#duet-send'); await sleep(1100);
-            const after = await page.evaluate(() => ({ src: document.querySelector('#duet-fig-r img')?.getAttribute('src') || '', fig: document.getElementById('duet-fig-r').className, stats: document.querySelector('#duet-game .dv-stats')?.innerText.replace(/\s+/g, ' ') }));
+            const after = await page.evaluate(() => ({ src: document.querySelector('#duet-fig-r img')?.getAttribute('src') || '', fig: document.getElementById('duet-fig-r').className, stats: document.querySelector('#duet-game .dv-istage')?.innerText.replace(/\s+/g, ' ') }));
             check(m.label, 'her [happy] reply switches to her happy idle clip, and the stats count it', /joy-happy-breath\.gif$/.test(after.src) && /is-idle/.test(after.fig) && /Your lines 2 Her lines 2/i.test(after.stats), after);
             await page.evaluate(async () => { const c = window.mock.state.chat; const last = c[c.length - 1]; last.mes = 'Mm. Go on.'; last.swipes = [last.mes]; await window.mock.eventSource.emit(window.mock.eventTypes.MESSAGE_UPDATED, c.length - 1); }); await sleep(600);
             const calm = await page.evaluate(() => document.querySelector('#duet-fig-r img')?.getAttribute('src') || '');

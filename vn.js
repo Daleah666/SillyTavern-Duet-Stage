@@ -577,20 +577,18 @@ function gameHTML(ctx, ch) {
         HEART_STAGES.forEach(([n, label]) => { if (v >= n) stage = label; });
     }
     const name = ch?.name || ctx.name2 || 'Her';
+    const meter = (k, label, value, color, extra = '') => `<div class="dv-meter" data-bar="${k}" style="--m:${color}"><span>${label}</span>${extra}<i><s style="width:${value}%"></s></i></div>`;
     const bars = h
-        ? HEART_BARS.map(([k, label, c]) => `<div class="dv-meter" data-bar="${k}" style="--m:${c}"><span>${esc(label)}</span><b>${pct(h[k])}</b><i style="width:${pct(h[k])}%"></i></div>`).join('')
+        ? HEART_BARS.map(([k, label, c]) => meter(k, esc(label), pct(h[k]), c, `<b>${pct(h[k])}</b>`)).join('')
         : `<p class="dv-note">Card Creator's 💗 Right now fills these six bars. Open it once for ${esc(name)} and they show up here.</p>`;
     const quest = String(ctx.chatMetadata?.duet_quest || '');
-    return `<header class="dv-gh"><span class="av" id="duet-game-av"></span><div><b>${esc(name)}</b><small>Level ${level}${stage ? ` · ${esc(stage)}` : ''}</small></div></header>
-<div class="dv-sec"><i></i>Level ${level}</div>
-<div class="dv-meter xp" data-bar="xp" style="--m:var(--lc)"><span>${into} / ${LINES_PER_LEVEL} lines to level ${level + 1}</span><i style="width:${Math.round((into / LINES_PER_LEVEL) * 100)}%"></i></div>
-<div class="dv-sec"><i></i>Right now</div>
-<div class="dv-mood">Mood <b id="duet-game-mood">${esc(mood)}</b></div>
-${bars}
-<div class="dv-sec"><i></i>Quest</div>
-<input id="duet-quest" type="text" maxlength="160" value="${esc(quest)}" placeholder="No quest yet. Write one; it stays with this chat." aria-label="Quest for this chat">
-<div class="dv-sec"><i></i>Stats</div>
-<dl class="dv-stats"><div><dt>Your lines</dt><dd>${mine}</dd></div><div><dt>Her lines</dt><dd>${hers}</dd></div><div><dt>Tokens</dt><dd>${tokens ? `≈${tokens}` : '–'}</dd></div></dl>`;
+    return `<header class="dv-ih"><b>${esc(name)}</b><span>Level ${level}${stage ? ` · ${esc(stage)}` : ''}</span></header>
+<div class="dv-ib">
+<section class="dv-isec"><h4 data-g="★">Level <span class="n">${level}</span></h4><div class="dv-ibox">${meter('xp', `${into} / ${LINES_PER_LEVEL} lines to level ${level + 1}`, Math.round((into / LINES_PER_LEVEL) * 100), '')}</div></section>
+<section class="dv-isec"><h4 data-g="💗">Right now</h4><div class="dv-ibox"><div class="dv-mood">Mood <b id="duet-game-mood">${esc(mood)}</b></div>${bars}</div></section>
+<section class="dv-isec"><h4 data-g="⚑">Quest</h4><input id="duet-quest" type="text" maxlength="160" value="${esc(quest)}" placeholder="No quest yet. Write one; it stays with this chat." aria-label="Quest for this chat"></section>
+<section class="dv-isec"><h4 data-g="#">Stats</h4><dl class="dv-istage"><dt>Your lines</dt><dd>${mine}</dd><dt>Her lines</dt><dd>${hers}</dd><dt>Tokens</dt><dd>${tokens ? `≈${tokens}` : '–'}</dd></dl></section>
+</div>`;
 }
 
 function renderGame() {
@@ -606,7 +604,6 @@ function renderGame() {
     if (html === S.gameSig) return;
     S.gameSig = html;
     host.innerHTML = html;
-    paintAv(document.getElementById('duet-game-av'), ch ? thumb('avatar', ch.avatar) : '', ch?.name || '?');
 }
 
 function saveQuest(value) {
