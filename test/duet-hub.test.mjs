@@ -5,6 +5,7 @@ import { originalImage } from '../images.js';
 import { buildHubDocument, readHubDocument } from '../drive.js';
 import { LIBRARY_CATALOG } from '../library-catalog.js';
 import { catalogCastNames, characterForFile } from '../library-transfer.js';
+import { DEFAULT_AGENT_URL, ensureAgentSettings, extractAgentContext, formatAgentContext } from '../agent-link.js';
 
 test('feature switches default on and do not clear each other', () => {
     const settings = {};
@@ -70,4 +71,18 @@ test('Claude catalog is names only', () => {
         assert.equal('src' in item, false);
     }
     assert.equal(characterForFile('redz.png'), 'Redz');
+});
+
+test('Ask Agent helper builds clean context with default URL', () => {
+    const settings = {};
+    const cfg = ensureAgentSettings(settings);
+    assert.equal(cfg.url, DEFAULT_AGENT_URL);
+    const text = formatAgentContext(extractAgentContext({
+        characterId: '0',
+        characters: [{ name: 'Bambi', avatar: 'bambi.png' }],
+        chat: [{ name: 'Bambi', is_user: false, mes: '[flirty] Hey.' }],
+    }, { settings, note: 'Check spacing' }));
+    assert.match(text, /Character: Bambi/);
+    assert.match(text, /Look \/ Mood: flirty/);
+    assert.match(text, /Check spacing/);
 });

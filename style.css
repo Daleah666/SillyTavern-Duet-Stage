@@ -1117,6 +1117,152 @@ body.st-duet-vn:not(.duet-stowed) #duet-banner {
 #duet-sync-pop .dsy-log{list-style:none;margin:0;padding:0;max-height:110px;overflow:auto;color:#ccd;font-size:.9em}#duet-sync-pop .dsy-log li{padding:2px 0;border-top:1px solid rgba(255,255,255,.06)}
 #duet-sync-pop .dsy-ver{color:#889;display:block;margin-top:4px}
 
+/* ---------- Ask Agent quick-link (agent-link.js) ---------- */
+#duet-agent-pop[hidden] { display: none !important; }
+#duet-agent-pop {
+    position: fixed;
+    z-index: 4100;
+    width: min(360px, calc(100vw - 16px));
+    padding: 12px 14px;
+    box-sizing: border-box;
+    border-radius: 14px;
+    background: rgba(15, 17, 24, 0.97);
+    color: #f6f8fb;
+    border: 1px solid rgba(255, 124, 191, 0.42);
+    box-shadow: 0 16px 44px rgba(0, 0, 0, 0.58);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    font: 14px/1.45 "Instrument Sans", "Segoe UI", system-ui, sans-serif;
+}
+.duet-agent-head {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+.duet-agent-title {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.duet-agent-title b {
+    font-family: "Unbounded", system-ui, sans-serif;
+    font-weight: 500;
+    font-size: 0.88rem;
+}
+.duet-agent-ctx {
+    color: rgba(232, 238, 247, 0.62);
+    font-size: 0.76rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.duet-agent-close {
+    flex: none;
+    width: 28px;
+    height: 28px;
+    display: grid;
+    place-items: center;
+    padding: 0;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    background: rgba(255, 255, 255, 0.06);
+    color: #f6f8fb;
+    cursor: pointer;
+}
+.duet-agent-close:hover { border-color: #ff7cbf; }
+.duet-agent-lbl {
+    display: block;
+    margin-bottom: 5px;
+    color: rgba(232, 238, 247, 0.82);
+    font-size: 0.82rem;
+    font-weight: 500;
+}
+#duet-agent-note {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 8px 10px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    background: rgba(255, 255, 255, 0.05);
+    color: #f6f8fb;
+    font: inherit;
+    resize: vertical;
+    min-height: 64px;
+}
+#duet-agent-note:focus {
+    outline: none;
+    border-color: rgba(255, 124, 191, 0.75);
+}
+.duet-agent-acts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+}
+.duet-agent-acts button {
+    font: inherit;
+    font-size: 0.84rem;
+    font-weight: 600;
+    padding: 7px 12px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    background: rgba(255, 255, 255, 0.07);
+    color: #f6f8fb;
+    cursor: pointer;
+}
+.duet-agent-acts button:hover { border-color: #ff7cbf; }
+.duet-agent-acts button.primary {
+    flex: 1 1 auto;
+    background: #ff7cbf;
+    color: #22091a;
+    border-color: transparent;
+}
+.duet-agent-acts button.primary:hover { filter: brightness(1.08); }
+.duet-agent-status {
+    margin: 8px 0 0;
+    color: #86efac;
+    font-size: 0.78rem;
+}
+.duet-agent-status.is-warn { color: #fde047; }
+.duet-agent-settings,
+.duet-agent-ext-settings {
+    margin-top: 10px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+.duet-agent-ext-url {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 6px;
+    font-size: 0.85rem;
+}
+.duet-agent-url-row {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+.duet-agent-url-row input {
+    flex: 1;
+    min-width: 0;
+    box-sizing: border-box;
+    padding: 6px 9px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    background: rgba(255, 255, 255, 0.05);
+    color: inherit;
+    font: inherit;
+    font-size: 0.82rem;
+}
+.duet-agent-url-row button {
+    flex: none;
+    padding: 6px 10px;
+    border-radius: 8px;
+}
+
 /* ---------- 0.2.2: the Duet Staging look ----------
    Same fonts, colours and shapes as the Duet Staging page. Button rules carry #duet-vn so they
    win over the base "#duet-vn button" rule above. */

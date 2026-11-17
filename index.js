@@ -14,6 +14,13 @@
  */
 
 import './autoupdate.js';   // updates itself from GitHub on each refresh, and shows the repo's 📣 board
+import {
+    agentLinkEnabled,
+    bootAgentLink,
+    ensureAgentSettings,
+    mountAgentExtensionSettings,
+    syncAgentExtensionSettings,
+} from './agent-link.js';
 import { bootVn } from './vn.js';
 import { FEATURES, ensureFeatures, featureOn, setFeature } from './features.js';
 import { completeSignIn, hydrateDrive, takeOauthReturn } from './drive.js';
@@ -57,6 +64,7 @@ function settings() {
     if (typeof s.panelWidth !== 'number' || !Number.isFinite(s.panelWidth)) s.panelWidth = DEFAULTS.panelWidth;
     s.panelWidth = clamp(Math.round(s.panelWidth), 240, 720);
     ensureFeatures(s);
+    ensureAgentSettings(s);
     try { hydrateDrive(s); } catch (e) { console.warn(`[${MODULE}] drive settings`, e); }
     return s;
 }
@@ -275,6 +283,11 @@ function mountSettings() {
         saveSettings();
         applyLayout();
     });
+    mountAgentExtensionSettings(box, settings, saveSettings, () => {
+        applyLayout();
+        renderMenu();
+        try { window.DuetStage?.onFeatures?.(); } catch (e) { console.warn(`[${MODULE}] agent settings`, e); }
+    });
 }
 
 function syncSettingsForm() {
@@ -292,6 +305,7 @@ function syncSettingsForm() {
     document.querySelectorAll('#st-duet-stage-settings [data-feature-toggle]').forEach((input) => {
         input.checked = featureOn(s, input.getAttribute('data-feature-toggle'));
     });
+    syncAgentExtensionSettings(s);
 }
 
 /* ---------------- layout ---------------- */
@@ -329,6 +343,7 @@ function applyLayout() {
     if (legacySprite && !stageOn) legacySprite.hidden = true;
 
     try { window.DuetSync?.refresh?.(); } catch (e) { /* the link is optional */ }
+    try { agentApi?.refresh?.(); } catch (e) { /* agent quick-link is optional */ }
 
     const panel = document.getElementById(PANEL_ID);
     if (panel) {
@@ -572,6 +587,15 @@ function renderMenu() {
             }
         });
         menu.append(btn);
+    }
+    if (agentLinkEnabled(settings())) {
+        const ask = h('button', { type: 'button', id: 'duet-agent-menu-btn', role: 'menuitem', text: 'Ask Agent' });
+        ask.addEventListener('click', () => {
+            closeMenu();
+            const anchor = document.getElementById('duet-theater-btn') || document.getElementById('duet-stow-tab');
+            agentApi?.toggle?.(anchor);
+        });
+        menu.append(ask);
     }
 }
 
@@ -847,6 +871,7 @@ function bindSpriteEvents() {
 let booted = false;
 let bootTries = 0;
 let pendingOauth = null;
+let agentApi = null;
 
 function publishApi() {
     window.DuetStage = {
@@ -855,6 +880,7 @@ function publishApi() {
         stageMode,
         registerPanel,
         listPanels,
+        askAgent: (anchor) => agentApi?.toggle?.(anchor),
         refresh() {
             scheduleSprite();
             applyLayout();
@@ -920,6 +946,7 @@ function boot() {
             applyLayout();
         },
     });
+    agentApi = bootAgentLink({ settings, saveSettings, getCtx: ctx });
     let watchTries = 0;
     const watchTimer = setInterval(() => {
         watchExpression();
