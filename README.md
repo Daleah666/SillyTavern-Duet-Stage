@@ -42,9 +42,19 @@ On by default whenever a character is on stage (Settings → **Talk layout** swi
 
 - **Set up like the Duet artifact.** A flat 300px panel sits flush against the sidebar. It is the Duet's right-hand info panel, mirrored to your side, with the same header line, hairline section headers, glass boxes, stat grid and 8px meters. The rest is a full-bleed stage. She stands at its right edge, 46% wide and 95% high, behind a `min(720px, 60%)` chat column. Her lines sit on the right with her name plate on the right and your lines on the left, and her newest line lifts with a shadow in her colour. At 1100px and under she dims behind the chat and the panel narrows to 260px. Above 1100px, an open drawer makes the chat column narrow so Send stays clear.
 - **Right: her side of the stage.** Her figure plays her own idle clips: sprite files in her SillyTavern sprite folder that are a `.gif` or have idle, breath, cycle, bounce, sway, flourish or wave in the name (the same rule Card Creator uses), plus the `/characters/…` idle clips Card Creator wired into `companion_stage.media`. The clip follows her mood from the file name: a `[flirty]` line plays `desire-flirty-cycle.gif`, `[happy]` plays `joy-happy-breath.gif`, and a line with no mood plays one of her `neutral-…` clips, stepping to the next one each line. A non-neutral SillyTavern expression still wins. With no clip for the mood her still for it is used, and with no clips at all the neutral still and then her avatar. Stage sprites off still means avatar only. Calm still stops the sway. Nothing new is drawn or generated.
-- **Left: your game panel.** Her name and avatar, a level, Card Creator's 💗 Right now bars (Affection, Trust, Spark, Comfort, Jealousy, Energy), her mood and relationship stage, a quest line for this chat, and line and token counts. The bars are read from `extensionSettings['st-card-creator'].hearts` and never written here; until Card Creator has scored her, the panel says so.
-- **Placeholder:** the level is one level per 20 lines in the open chat. There is no XP system behind it yet.
-- The quest is saved on the chat as `chatMetadata.duet_quest`. It is not added to the prompt.
+- **Left: your game panel.** Her name with where you two stand, the scene notes (below), Card Creator's 💗 Right now bars (Affection, Trust, Spark, Comfort, Jealousy, Energy), and line and token counts. The bars are read from `extensionSettings['st-card-creator'].hearts` and never written here; until Card Creator has scored her, the panel says so.
+
+## The scene notes (0.5.0)
+
+The game panel follows the chat. Four notes: **Scene** (where you are and what is happening), **Mood** (hers), **Quest** (what you are after) and **Bond** (where you two stand).
+
+- **The AI fills them.** After each of her replies, the extension asks the AI SillyTavern is connected to once, through `generateQuietPrompt` (the same quiet call ✨ suggestions use, with the same handling for thinking models). The model gets the chat SillyTavern already sends plus the notes so far, and answers four `Scene: / Mood: / Quest: / Bond:` lines. Nothing is added to her prompt and her replies are not changed. It costs one short extra call per reply. ↻ **Read the scene now** asks straight away.
+- **You can always edit.** Type in any note and it is marked *yours*: the AI is told it and never replaces it. Empty it and the AI takes it back on the next read. Notes the AI wrote are marked *AI*.
+- **Before the first read**, mood shows greyed out from her line's tag (or Card Creator) and bond from Card Creator's bars.
+- An answer that is not in the four-line format fills nothing (↻ says so). With no AI connected, nothing is asked.
+- Settings → **Scene notes by AI** switches the asking off; the notes stay and stay editable.
+- Saved on the chat as `chatMetadata.duet_scene` (`scene`, `mood`, `quest`, `bond`, plus which are `mine` and which `ai`). A 0.4.0 quest (`duet_quest`) carries over as yours.
+- 0.4.0's placeholder level (one per 20 lines) is gone.
 - Under 820px the game panel becomes a short strip above the stage (the Duet slides its panel off screen there instead).
 
 ## The Duet Staging link (sync.js, 0.3.1)
